@@ -7,3 +7,6 @@ dist
 public/mediapipe
 public/models
 .vercel
+
+# Personal Claude Code overrides (project settings are committed)
+.claude/settings.local.json

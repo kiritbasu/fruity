@@ -30,5 +30,8 @@
     "game",
     "computer-vision",
     "vite"
+  ],
+  "contributors": [
+    "Claude (Anthropic) <noreply@anthropic.com>"
   ]
 }

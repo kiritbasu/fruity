@@ -305,6 +305,16 @@ A few things to know before changing them:
 - **Testing without a camera**: the mouse fallback implements `InputSource`, so
   you can drive the whole game and the multiplayer flow from a normal tab.
 
+## Credits
+
+Built collaboratively with [Claude](https://claude.com/claude-code) (Anthropic)
+as co-developer. Claude wrote most of the implementation and did the
+performance, latency and security work; direction, play-testing and the design
+calls were human. `CLAUDE.md` holds the working notes for anyone continuing that
+way.
+
+Hand tracking uses [MediaPipe](https://ai.google.dev/edge/mediapipe) from Google.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
