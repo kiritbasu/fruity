@@ -1,8 +1,14 @@
 /**
- * 1€ filter (Casiez et al.) — the standard low-latency jitter filter for
- * interactive pointing. It adapts the cutoff frequency to speed: heavy
- * smoothing when the hand is still (kills landmark jitter), almost none when
- * it's moving fast (keeps swipes responsive).
+ * Smooths a noisy position without adding the lag that plain averaging would.
+ *
+ * How hard it smooths depends on how fast the value is moving. Hand still:
+ * smooth hard, so the jitter in the raw landmarks disappears and the sword sits
+ * steady. Hand moving: barely smooth at all, so the sword keeps up with the
+ * swing. That way you get a steady sword at rest and a responsive one mid-swipe
+ * rather than having to pick one.
+ *
+ * Known as the One Euro filter (Casiez et al.). It is named for being cheap to
+ * compute; the name says nothing about what it does.
  */
 class LowPass {
   private y = 0;
