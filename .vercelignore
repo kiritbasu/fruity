@@ -1,0 +1,6 @@
+# Regenerated during the build by scripts/fetch-assets.mjs and the
+# buildTrackingWorker plugin — no point uploading ~40 MB of it.
+public/mediapipe
+public/models
+dist
+node_modules

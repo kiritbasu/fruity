@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+*.log
+
+# Vendored at install time by scripts/fetch-assets.mjs
+public/mediapipe
+public/models
+.vercel
