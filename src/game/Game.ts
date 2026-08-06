@@ -820,31 +820,28 @@ export class Game {
   }
 
   /**
-   * The platters sit along the bottom: one in solo, two side by side in versus
-   * so you can see how the other player is doing without reading their score.
+   * Bowls live in the bottom corners rather than across the middle: the centre
+   * of the screen is where fruit falls, and the "show your hand" prompt sits
+   * along the bottom edge.
    */
   private drawPlatters(ctx: CanvasRenderingContext2D) {
     const H = this.height;
     const W = this.width;
-    // Far enough off the bottom to leave room for the label beneath the plate.
-    const baseY = H - H * 0.115;
+    const w = clamp(Math.min(W * 0.15, H * 0.26), 90, 260);
+    const baseY = H - H * 0.075;
+    const inset = W * 0.035 + w * 0.5;
 
     if (this.mode === 'solo') {
-      const w = Math.min(W * 0.34, H * 0.5);
-      this.platter.draw(ctx, W * 0.5, baseY, w, this.dpr, SLICE_COLOR);
-      // The score already lives in the corner in solo, so the plate counts
-      // fruit instead of repeating it.
+      this.platter.draw(ctx, inset, baseY, w, this.dpr, SLICE_COLOR);
       const n = this.platter.count;
-      this.platterLabel(ctx, W * 0.5, baseY, w, n ? `${n} sliced` : '', SLICE_COLOR);
+      this.platterLabel(ctx, inset, baseY, w, n ? `${n} sliced` : '', SLICE_COLOR);
       return;
     }
 
-    const w = Math.min(W * 0.3, H * 0.44);
-    const inset = W * 0.03;
-    const leftX = inset + w * 0.5;
-    const rightX = W - inset - w * 0.5;
-    this.platter.draw(ctx, leftX, baseY, w, this.dpr, SLICE_COLOR);
-    this.platterLabel(ctx, leftX, baseY, w, `You  ${this.score}`, SLICE_COLOR);
+    this.platter.draw(ctx, inset, baseY, w, this.dpr, SLICE_COLOR);
+    this.platterLabel(ctx, inset, baseY, w, `You  ${this.score}`, SLICE_COLOR);
+
+    const rightX = W - inset;
     this.remotePlatter.draw(ctx, rightX, baseY, w, this.dpr, GHOST_COLOR);
     // Connection trouble is reported here now that the opponent card is gone.
     const theirLabel = this.remote.connected
@@ -861,15 +858,16 @@ export class Game {
     text: string,
     colour: string,
   ) {
+    if (!text) return;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.font = `800 ${Math.round(w * 0.062)}px ui-rounded, "Avenir Next", system-ui, sans-serif`;
+    ctx.font = `800 ${Math.round(clamp(w * 0.17, 13, 26))}px ui-rounded, "Avenir Next", system-ui, sans-serif`;
     ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.strokeText(text, cx, baseY + w * 0.045);
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+    ctx.strokeText(text, cx, baseY + w * 0.08);
     ctx.fillStyle = colour;
-    ctx.fillText(text, cx, baseY + w * 0.045);
+    ctx.fillText(text, cx, baseY + w * 0.08);
     ctx.restore();
   }
 
