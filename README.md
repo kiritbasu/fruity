@@ -1,4 +1,5 @@
 # 🍉 Fruity
+(for all the nephews and nieces ages 4 and above) 
 
 **[Play it →](https://fruity-rose.vercel.app)**
 
