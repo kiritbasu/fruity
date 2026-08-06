@@ -14,12 +14,17 @@ const ICE_TIMEOUT_MS = 4000;
 
 /**
  * How long a 'disconnected' peer is given to heal before we call it a failure.
- * Transient drops of a few seconds are routine and recover by themselves.
+ *
+ * Generous on purpose. Two machines on one network often pair over their local
+ * addresses first, and if the router will not pass traffic between them that
+ * pair dies seconds after forming. ICE then has to notice and fail over to a
+ * relay pair, which takes a while, so an impatient timeout turns a recoverable
+ * situation into a dead end.
  */
-const RECOVER_GRACE_MS = 8000;
+const RECOVER_GRACE_MS = 15000;
 
 /** Grace after a usable candidate set arrives, to catch a few more cheaply. */
-const ICE_SETTLE_MS = 400;
+const ICE_SETTLE_MS = 500;
 
 /**
  * Asks the deployment for Cloudflare TURN credentials, which cover the roughly
@@ -48,6 +53,8 @@ export interface PeerEvents {
   onMessage: (msg: NetMsg) => void;
   onStatus: (status: PeerStatus, detail?: string) => void;
   onRemoteStream: (stream: MediaStream) => void;
+  /** Every local candidate as it is discovered, for trickling to the peer. */
+  onCandidate?: (candidate: RTCIceCandidateInit) => void;
 }
 
 export class Peer {
@@ -62,6 +69,7 @@ export class Peer {
   /** Candidate types we managed to gather, for a useful failure message. */
   private localCandidates = new Set<string>();
   private hadRelay = false;
+  private everConnected = false;
   private recoverTimer = 0;
 
   constructor(
@@ -75,10 +83,17 @@ export class Peer {
     });
 
     this.pc.onicecandidate = (ev) => {
-      const type = ev.candidate?.type;
-      if (!type) return;
-      this.localCandidates.add(type);
-      if (type === 'relay') this.hadRelay = true;
+      if (!ev.candidate) return;
+      const type = ev.candidate.type;
+      if (type) {
+        this.localCandidates.add(type);
+        if (type === 'relay') this.hadRelay = true;
+      }
+      // Trickled rather than frozen into the offer. Gathering everything up
+      // front meant the host's candidates were collected before the guest even
+      // existed, so a NAT binding could lapse while the invite sat waiting and
+      // nothing new could ever be added.
+      this.events.onCandidate?.(ev.candidate.toJSON());
     };
 
     this.pc.onconnectionstatechange = () => {
@@ -87,6 +102,7 @@ export class Peer {
       if (s === 'connected') {
         window.clearTimeout(this.recoverTimer);
         this.recoverTimer = 0;
+        this.everConnected = true;
         this.set('connected');
         return;
       }
@@ -132,12 +148,37 @@ export class Peer {
   private diagnose(): string {
     const types = [...this.localCandidates];
     if (!types.length) {
-      return 'No network routes were found at all — check that the browser is allowed network access.';
+      return 'No network routes were found at all. Check that the browser is allowed network access.';
     }
     if (!this.hadRelay) {
-      return `Could not find a route to the other player (tried: ${types.join(', ')}). No relay candidate was available, so a strict network on either side would block this.`;
+      return `Could not find a route to the other player (tried: ${types.join(', ')}). No relay was available, so a strict network on either side will block this.`;
     }
-    return `Could not find a route to the other player (tried: ${types.join(', ')}). A relay was available, so this is more likely a firewall blocking UDP than a missing relay.`;
+    if (this.everConnected) {
+      return 'The connection formed and then stopped passing traffic. On a shared network this usually means the router is blocking traffic between the two devices.';
+    }
+    return `Could not find a route to the other player (tried: ${types.join(', ')}). A relay was available, so this looks more like a firewall blocking UDP than a missing relay.`;
+  }
+
+  /** Which candidate pair actually carried traffic, for the debug overlay. */
+  async route(): Promise<string> {
+    try {
+      const stats = await this.pc.getStats();
+      let localId = '';
+      let remoteId = '';
+      stats.forEach((entry) => {
+        const s = entry as { type?: string; state?: string; localCandidateId?: string; remoteCandidateId?: string };
+        if (s.type === 'candidate-pair' && s.state === 'succeeded') {
+          localId = s.localCandidateId ?? '';
+          remoteId = s.remoteCandidateId ?? '';
+        }
+      });
+      if (!localId) return this.pc.connectionState;
+      const l = stats.get(localId) as { candidateType?: string } | undefined;
+      const r = stats.get(remoteId) as { candidateType?: string } | undefined;
+      return `${l?.candidateType ?? '?'}/${r?.candidateType ?? '?'}`;
+    } catch {
+      return this.pc.connectionState;
+    }
   }
 
   private set(status: PeerStatus, detail?: string) {
@@ -181,9 +222,29 @@ export class Peer {
     return !!this.videoSender;
   }
 
+  /** Feed in a candidate the other side trickled to us. */
+  async addRemoteCandidate(init: RTCIceCandidateInit): Promise<void> {
+    try {
+      await this.pc.addIceCandidate(init);
+    } catch {
+      // Candidates can arrive before the remote description, or be duplicates.
+      // Neither is worth surfacing.
+    }
+  }
+
   /**
-   * ICE candidates are gathered up front rather than trickled, so the whole
-   * connection fits in a single pasteable code.
+   * Asks ICE to start over with fresh candidates. Only useful now that
+   * candidates are trickled, since a restart has to be able to deliver them.
+   */
+  async restartIce(): Promise<RTCSessionDescriptionInit | null> {
+    if (this.pc.signalingState === 'closed') return null;
+    this.pc.restartIce();
+    return null;
+  }
+
+  /**
+   * Waits briefly for the first candidates so the offer is useful on its own,
+   * then stops. The rest arrive by trickle.
    */
   private async completeGathering(): Promise<void> {
     if (this.pc.iceGatheringState === 'complete') return;
@@ -202,16 +263,11 @@ export class Peer {
         if (this.pc.iceGatheringState === 'complete') done();
       };
 
-      /*
-       * Full gathering means waiting on every configured TURN URL — Cloudflare
-       * publishes six — which reliably burned the whole timeout and left the
-       * host staring at a spinner. One relay plus one reflexive candidate is
-       * already enough to connect from anywhere, so stop shortly after both
-       * arrive instead of waiting for stragglers.
-       */
+      // We only need enough to get the exchange moving; trickle delivers the
+      // rest, including anything gathered after the invite is sent.
       let earlyTimer = 0;
       const onCandidate = () => {
-        if (!this.hadRelay || !this.localCandidates.has('srflx') || earlyTimer) return;
+        if (!this.localCandidates.size || earlyTimer) return;
         earlyTimer = window.setTimeout(done, ICE_SETTLE_MS);
       };
 

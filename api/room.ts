@@ -110,15 +110,30 @@ const newCode = () =>
 const isCode = (c: string | null): c is string => !!c && /^\d{6}$/.test(c);
 const keyFor = (code: string, which: string) => `fruity:room:${code}:${which}`;
 
+/**
+ * Candidate lists are written by one side and read by the other, so each side
+ * owns its own key and simply rewrites the whole list as it grows. That avoids
+ * needing append semantics or worrying about two writers racing.
+ */
+const isSide = (v: string | null): v is 'host' | 'guest' => v === 'host' || v === 'guest';
+
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const code = url.searchParams.get('code');
 
     try {
-      // Guest fetches the offer; host polls for the answer.
+      // Guest fetches the offer; host polls for the answer; both poll for the
+      // other's trickled ICE candidates.
       if (request.method === 'GET') {
         if (!isCode(code)) return json({ error: 'bad code', backend }, 400);
+
+        const side = url.searchParams.get('side');
+        if (url.searchParams.get('want') === 'ice' && isSide(side)) {
+          const raw = await get(keyFor(code, `ice-${side}`));
+          return json({ ice: raw ? (JSON.parse(raw) as unknown[]) : [], backend });
+        }
+
         const which = url.searchParams.get('want') === 'answer' ? 'answer' : 'offer';
         const value = await get(keyFor(code, which));
         if (which === 'offer' && !value) return json({ error: 'no such game', backend }, 404);
@@ -127,6 +142,17 @@ export default {
 
       if (request.method === 'POST') {
         const body = (await request.json()) as { offer?: string; answer?: string };
+
+        // Either side republishes its full candidate list as it grows.
+        const iceSide = url.searchParams.get('ice');
+        if (isCode(code) && isSide(iceSide)) {
+          const list = (body as { ice?: unknown[] }).ice;
+          if (!Array.isArray(list)) return json({ error: 'missing ice', backend }, 400);
+          const encoded = JSON.stringify(list.slice(0, 40));
+          if (encoded.length > MAX_BLOB) return json({ error: 'ice too large', backend }, 413);
+          await set(keyFor(code, `ice-${iceSide}`), encoded);
+          return json({ ok: true, backend });
+        }
 
         // Guest posts its answer into an existing room.
         if (isCode(code)) {

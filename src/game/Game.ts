@@ -114,6 +114,8 @@ export class Game {
   onScoreChanged: ((score: number, combo: number) => void) | null = null;
   /** Fires when this player cuts a fruit, so it can leave the other board too. */
   onFruitCut: ((uid: number, angle: number) => void) | null = null;
+  /** Which candidate pair the peer connection settled on, for the debug overlay. */
+  netRoute: (() => string) | null = null;
   onMatchOver: ((score: number) => void) | null = null;
 
   private phaseTimer = 0;
@@ -885,6 +887,7 @@ export class Game {
       `fruit ${this.fruits.filter((f) => f.alive).length} · chunks ${this.chunks.filter((c) => c.alive).length}`,
       `cut above ${(SLICE_SPEED * this.height).toFixed(0)} px/s · hot ${HOT_WINDOW}ms`,
     ];
+    if (this.mode === 'versus') lines.push(`net ${this.netRoute?.() ?? '—'}`);
     // Sits below the HUD so it doesn't cover the score.
     const top = 116;
     ctx.save();

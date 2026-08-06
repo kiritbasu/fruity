@@ -78,6 +78,25 @@ export async function awaitAnswer(
   throw new Error('They never joined — the invite timed out.');
 }
 
+/** Republish our full candidate list. One writer per side, so no append races. */
+export async function putCandidates(
+  code: string,
+  side: 'host' | 'guest',
+  ice: unknown[],
+): Promise<void> {
+  await call(`${ROOM_API}?code=${encodeURIComponent(code)}&ice=${side}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ice }),
+  });
+}
+
+/** Fetch whatever the other side has published so far. */
+export async function getCandidates(code: string, side: 'host' | 'guest'): Promise<unknown[]> {
+  const data = await call(`${ROOM_API}?code=${encodeURIComponent(code)}&want=ice&side=${side}`);
+  return Array.isArray(data.ice) ? data.ice : [];
+}
+
 /**
  * Reads a game code out of the URL so a shared link joins straight away.
  * Accepts /j/1234 (the pretty form, rewritten to the app in vercel.json),

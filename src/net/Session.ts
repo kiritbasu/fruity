@@ -20,15 +20,18 @@ export const MATCH_SECONDS = 180;
 export class Session {
   readonly peer: Peer;
   role: Role = 'host';
+  private routeTimer = 0;
 
   constructor(
     private game: Game,
     private hud: Hud,
     private onStatus: (status: PeerStatus, detail?: string) => void,
     turnServers: RTCIceServer[] = [],
+    onCandidate?: (candidate: RTCIceCandidateInit) => void,
   ) {
     this.peer = new Peer(
       {
+        onCandidate,
         onMessage: (m) => this.handle(m),
         onStatus: (s, d) => {
           this.game.remote.connected = s === 'connected';
@@ -54,6 +57,16 @@ export class Session {
     this.game.onScoreChanged = (score, combo) => this.peer.send({ t: 'score', score, combo });
 
     this.game.onFruitCut = (uid, angle) => this.peer.send({ t: 'cut', uid, a: angle });
+
+    // Sampled rather than awaited, so the debug overlay never blocks a frame.
+    let route = 'connecting';
+    this.game.netRoute = () => route;
+    const sampleRoute = () => {
+      if (!this.peer) return;
+      void this.peer.route().then((r) => (route = r));
+      this.routeTimer = window.setTimeout(sampleRoute, 2000);
+    };
+    sampleRoute();
 
     this.game.onMatchOver = (score) => {
       this.peer.send({ t: 'done', score });
@@ -150,6 +163,8 @@ export class Session {
     this.game.onLocalHand = null;
     this.game.onScoreChanged = null;
     this.game.onFruitCut = null;
+    this.game.netRoute = null;
+    window.clearTimeout(this.routeTimer);
     this.game.onMatchOver = null;
     this.hud.setVersusChrome(false);
     this.hud.setOpponentStream(null);

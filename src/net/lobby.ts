@@ -5,7 +5,9 @@ import {
   clearUrlCode,
   createRoom,
   fetchOffer,
+  getCandidates,
   inviteLink,
+  putCandidates,
   submitAnswer,
 } from './rooms';
 import { errorText, escapeHtml } from '../util/html';
@@ -35,6 +37,10 @@ export class Lobby {
   private session: Session | null = null;
   private turnServers: RTCIceServer[] | null = null;
   private cancelled = false;
+  /** Local candidates waiting to be published, and the room to publish them to. */
+  private localIce: RTCIceCandidateInit[] = [];
+  private iceRoom: { code: string; side: 'host' | 'guest' } | null = null;
+  private icePump = 0;
   /** Whether we are currently sending camera video, owned here so the V key and
    *  the lobby checkbox can never disagree about the state. */
   private videoOn = false;
@@ -52,7 +58,10 @@ export class Lobby {
 
   private async newSession() {
     this.session?.close();
+    this.stopIcePump();
     this.cancelled = false;
+    this.localIce = [];
+    this.iceRoom = null;
     if (!this.turnServers) this.turnServers = await fetchIceServers();
     const session = new Session(
       this.game,
@@ -61,6 +70,10 @@ export class Lobby {
         if (status === 'failed') this.showFailed(detail);
       },
       this.turnServers,
+      (candidate) => {
+        this.localIce.push(candidate);
+        void this.publishIce();
+      },
     );
     const stream = this.cameraStream();
     if (stream) session.peer.attachCamera(stream);
@@ -79,6 +92,55 @@ export class Lobby {
     return (
       (this.hud.panelEl.querySelector('#oppVideoOpt') as HTMLInputElement | null)?.checked ?? false
     );
+  }
+
+  /**
+   * Trickled ICE, exchanged through the room.
+   *
+   * Two machines on one network usually pair over their local addresses, and
+   * those are exactly the candidates most likely to appear late or to stop
+   * working. Publishing continuously, and keeping the exchange running for a
+   * while after the connection forms, gives ICE something to fall back to.
+   */
+  private async publishIce() {
+    const room = this.iceRoom;
+    if (!room || !this.localIce.length) return;
+    try {
+      await putCandidates(room.code, room.side, this.localIce);
+    } catch {
+      // Best effort; the next candidate will retry the whole list.
+    }
+  }
+
+  private startIcePump(code: string, side: 'host' | 'guest') {
+    this.iceRoom = { code, side };
+    void this.publishIce();
+
+    const theirs = side === 'host' ? 'guest' : 'host';
+    const seen = new Set<string>();
+    const deadline = performance.now() + 45_000;
+
+    const tick = async () => {
+      if (this.cancelled || !this.session) return;
+      try {
+        for (const c of await getCandidates(code, theirs)) {
+          const init = c as RTCIceCandidateInit;
+          const key = JSON.stringify(init);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          await this.session.peer.addRemoteCandidate(init);
+        }
+      } catch {
+        // Keep polling; a transient failure is not fatal.
+      }
+      if (performance.now() < deadline) this.icePump = window.setTimeout(tick, 700);
+    };
+    this.icePump = window.setTimeout(tick, 300);
+  }
+
+  private stopIcePump() {
+    window.clearTimeout(this.icePump);
+    this.icePump = 0;
   }
 
   private exit() {
@@ -156,6 +218,8 @@ export class Lobby {
       return;
     }
 
+    this.startIcePump(code, 'host');
+
     const link = inviteLink(code);
     void copy(link);
     this.hud.showRaw(`
@@ -179,6 +243,7 @@ export class Lobby {
       // Without this the awaitAnswer poll below keeps running for its full
       // three-minute timeout and can seize the UI long after the player left.
       this.cancelled = true;
+      this.stopIcePump();
       this.session?.close();
       this.session = null;
       this.show();
@@ -243,6 +308,7 @@ export class Lobby {
       const answer = await session.peer.acceptOffer(offer);
       this.setVideo(video);
       await submitAnswer(code, answer);
+      this.startIcePump(code, 'guest');
       clearUrlCode();
       if (this.cancelled) return;
       this.waitForReady(false);
@@ -353,6 +419,7 @@ export class Lobby {
 
   close() {
     this.cancelled = true;
+    this.stopIcePump();
     this.session?.close();
     this.session = null;
   }

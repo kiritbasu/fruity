@@ -79,6 +79,12 @@ nothing. Any hand shape cuts now. If you add gesture-dependent moves, make the
 pose *select* an action rather than *enable* one, so a misread costs points
 rather than making the game feel dead.
 
+**ICE candidates are trickled, not gathered up front.** An earlier version
+froze every candidate into the invite before showing it, which made invites slow
+and left the host's candidates to go stale while the invite waited. `api/room.ts`
+carries candidate lists both ways; each side rewrites its own list as it grows,
+so there is one writer per key and no append races.
+
 ## Testing without a camera
 
 The browser sandbox has no camera, and headless tabs often report
