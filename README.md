@@ -30,9 +30,13 @@ reads orientation, not a specific hand shape, so any grip works. Sweep the sword
 through the fruit and it splits along the blade. Let fruit fall and you lose a
 life. Bombs pulse red. Touch one with a moving blade and it clears the screen.
 
-Six hand-written levels get harder by adding more fruit and more bombs rather
-than by speeding everything up. After level six the game generates harder
+Ten hand-written levels get harder by adding more fruit and more bombs rather
+than by speeding everything up. After level ten the game generates harder
 variants on its own. Clearing a level gives you a life back.
+
+When the game ends, everything in your bowl goes into a blender and comes out as
+one smoothie. Tap the blender while it runs to shake it — it does nothing at all,
+which is the point.
 
 | Key | |
 |---|---|
@@ -51,7 +55,10 @@ code is also shown if it is easier to read it out loud.
 
 You both slice the same fruit. Cut one and it is gone from their screen too, so
 you are genuinely racing for it rather than playing side by side. Their sword is
-drawn on your screen in pink. Highest score after three minutes wins.
+drawn on your screen in pink. Highest score after three minutes wins. Waves are
+bigger with two players, so there is always enough fruit for both of you.
+
+At the end both bowls go into the same blender, and either of you can shake it.
 
 If you both cut the same fruit at almost the same moment, you both get the
 points. That window is the network round trip, so nobody ever loses a fruit they
@@ -80,6 +87,8 @@ src/
     fruitDefs.ts       fruit artwork, drawn in code
     sprites.ts         sprite baking, cut-face rendering
     effects.ts         pooled particles, rings, score popups, splats
+    platter.ts         the bowl of cut fruit, drawn as the real scoreboard
+    smoothie.ts        the end-of-game blender
     levels.ts          level table and endless generator
     audio.ts           synthesised sound, no audio files (see below)
     hud.ts             DOM HUD and overlays
@@ -135,18 +144,34 @@ On top of that, the position is projected forward by up to one tracking interval
 so the sword does not visibly lag between camera samples. Rendering runs at 60Hz
 whatever the camera is doing.
 
-### The platter
+### The bowl
 
-Cut fruit lands on a platter along the bottom of the screen and piles up. That
-is the real scoreboard. A number tells you how you are doing; a heap of fruit
-shows it, and in a two-player match you get two platters side by side and can
-read both at a glance without comparing digits.
+Cut fruit piles up in a bowl in the bottom corner. That is the real scoreboard.
+A number tells you how you are doing; a bowl filling up shows it, and in a
+two-player match there is one in each corner so you can compare them without
+reading any digits.
 
-Halves are drawn cut-face up, the way fruit sits on an actual platter, and
-shrink as the heap grows so it keeps visibly building rather than filling one
-row and stopping. The opponent's platter is filled by the same cut messages that
-remove the fruit, so it costs nothing extra to keep in step, and it fills even
-for a fruit you both reached at once.
+Halves are drawn cut-face up and stack as a mound, and the bowl body is drawn
+over the front of the pile so the fruit sits inside it rather than on it. The
+pile stops at thirty: past that the bowl just reads as full and the label carries
+the real count. It is meant to show roughly how much you have, not to be counted.
+
+The opponent's bowl is filled by the same cut messages that remove the fruit, so
+it costs nothing extra to keep in step, and it fills even for a fruit you both
+reached at once.
+
+### The smoothie
+
+When the game ends, everything in the bowls flies into a blender and comes out
+as one drink. Each kind of fruit is a coloured band that slides toward the
+average as the blades run, so the final colour is genuinely what you cut — a jar
+of watermelon comes out greener than a jar of strawberries.
+
+In a two-player match both bowls go into the same jar, so the last thing on the
+screen is something the pair made together rather than a winner and a loser.
+Either player can tap the blender to shake it, which is forwarded to the other
+side so both jars rattle. It changes nothing and scores nothing; it is there so
+there is something to do while the motor runs.
 
 ### Sound
 

@@ -64,6 +64,8 @@ export class Session {
     this.game.onFruitCut = (uid, angle, fruit) =>
       this.peer.send({ t: 'cut', uid, a: angle, f: fruit });
 
+    this.game.onSmoothieShake = () => this.peer.send({ t: 'shake' });
+
     // Sampled rather than awaited, so the debug overlay never blocks a frame.
     let route = 'connecting';
     this.game.netRoute = () => route;
@@ -139,6 +141,12 @@ export class Session {
         if (this.game.phase === 'gameOver') this.hud.showVersusResult(this.game.score, remote);
         break;
 
+      case 'shake':
+        // No payload to coerce, and the game ignores it outside the smoothie,
+        // so a peer spamming this can only rattle their own jar animation.
+        this.game.shakeSmoothie();
+        break;
+
       case 'bye':
         remote.connected = false;
         this.hud.setPeerStatus('closed', 'Opponent left');
@@ -170,6 +178,7 @@ export class Session {
     this.game.onLocalHand = null;
     this.game.onScoreChanged = null;
     this.game.onFruitCut = null;
+    this.game.onSmoothieShake = null;
     this.game.netRoute = null;
     window.clearTimeout(this.routeTimer);
     this.game.onMatchOver = null;

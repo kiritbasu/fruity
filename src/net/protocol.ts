@@ -55,11 +55,28 @@ export interface DoneMsg {
   score: number;
 }
 
+/**
+ * Someone tapped the blender during the end-of-match smoothie. Carries nothing
+ * and affects nothing — it exists so both players see the jar rattle when
+ * either of them pokes it.
+ */
+export interface ShakeMsg {
+  t: 'shake';
+}
+
 export interface ByeMsg {
   t: 'bye';
 }
 
-export type NetMsg = HandMsg | ScoreMsg | StartMsg | HelloMsg | CutMsg | DoneMsg | ByeMsg;
+export type NetMsg =
+  | HandMsg
+  | ScoreMsg
+  | StartMsg
+  | HelloMsg
+  | CutMsg
+  | DoneMsg
+  | ShakeMsg
+  | ByeMsg;
 
 /** Mirror of the opponent, as the game renders it. */
 export interface RemoteState {

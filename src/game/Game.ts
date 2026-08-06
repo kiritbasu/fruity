@@ -7,12 +7,13 @@ import { FRUITS, SLICE_COLOR, type FruitId } from './fruitDefs';
 import { levelAt, type LevelDef } from './levels';
 import { clearSpriteCache, prewarm } from './sprites';
 import { Platter } from './platter';
+import { Smoothie, type SmoothieStage } from './smoothie';
 import { bladeSegment, clearSwordCache, drawSword } from './sword';
 import { Rng, randomSeed } from '../util/rng';
 import { emptyRemote, type RemoteState } from '../net/protocol';
 import type { Hud } from './hud';
 
-export type Phase = 'idle' | 'intro' | 'playing' | 'levelClear' | 'gameOver';
+export type Phase = 'idle' | 'intro' | 'playing' | 'levelClear' | 'smoothie' | 'gameOver';
 export type Mode = 'solo' | 'versus';
 
 /** Colour of the opponent's ghosted sword and arc. */
@@ -40,8 +41,23 @@ const COMBO_WINDOW = 0.75;
 const HIT_PAD = 0.035;
 const START_LIVES = 5;
 
-const MAX_FRUIT = 22;
-const MAX_CHUNKS = 40;
+/**
+ * Versus runs a bigger wave than solo off the same roll.
+ *
+ * Both players cut from one shared board, so a wave sized for a single player
+ * leaves whoever swings second with nothing to hit. Both peers derive this from
+ * the level and their own mode, which is identical on both machines, so the
+ * spawn stream stays in step.
+ */
+const VERSUS_WAVE_BONUS = 1.6;
+
+/**
+ * Pool sizes. The late levels put six to eight fruit up every second with
+ * roughly three seconds of hang time, and versus adds to that again, so these
+ * need real headroom — a pool that runs dry silently drops spawns.
+ */
+const MAX_FRUIT = 56;
+const MAX_CHUNKS = 64;
 
 /** The sword's geometry for one frame, plus where it was on the last one. */
 interface SwordPose {
@@ -81,6 +97,12 @@ export class Game {
   readonly platter = new Platter();
   readonly remotePlatter = new Platter();
   readonly sfx = new Sfx();
+  private smoothie = new Smoothie();
+  /** The result panel, held back until the blender has finished. */
+  private afterSmoothie: (() => void) | null = null;
+  private lastHandShakeAt = 0;
+  private landedSoFar = 0;
+  private lastPlopAt = 0;
 
   phase: Phase = 'idle';
   score = 0;
@@ -118,6 +140,8 @@ export class Game {
   onScoreChanged: ((score: number, combo: number) => void) | null = null;
   /** Fires when this player cuts a fruit, so it can leave the other board too. */
   onFruitCut: ((uid: number, angle: number, fruit: FruitId) => void) | null = null;
+  /** Fires when this player shakes the blender, so the other jar rattles too. */
+  onSmoothieShake: (() => void) | null = null;
   /** Which candidate pair the peer connection settled on, for the debug overlay. */
   netRoute: (() => string) | null = null;
   onMatchOver: ((score: number) => void) | null = null;
@@ -148,10 +172,19 @@ export class Game {
 
     this.resize();
     window.addEventListener('resize', this.resize);
+    canvas.addEventListener('pointerdown', this.onPointerDown);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'playing') this.pause();
     });
   }
+
+  /** Taps on the blender during the smoothie. Ignored the rest of the time. */
+  private onPointerDown = (e: PointerEvent) => {
+    if (this.phase !== 'smoothie') return;
+    const r = this.canvas.getBoundingClientRect();
+    if (!this.smoothie.hits(e.clientX - r.left, e.clientY - r.top)) return;
+    if (this.shakeSmoothie()) this.onSmoothieShake?.();
+  };
 
   // ---------------------------------------------------------------- lifecycle
 
@@ -180,6 +213,10 @@ export class Game {
     this.score = 0;
     this.lives = START_LIVES;
     this.levelIndex = 0;
+    // Restarting out of the blender must not leave the motor running.
+    this.sfx.motorStop();
+    this.smoothie.stage = 'done';
+    this.afterSmoothie = null;
     this.remoteBlade.clear();
     this.platter.clear();
     this.remotePlatter.clear();
@@ -242,7 +279,9 @@ export class Game {
   stop() {
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
+    this.sfx.motorStop();
     window.removeEventListener('resize', this.resize);
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown);
   }
 
   // ------------------------------------------------------------------ layout
@@ -383,6 +422,10 @@ export class Game {
         break;
       }
 
+      case 'smoothie':
+        this.tickSmoothie(dt, now, hands);
+        break;
+
       case 'gameOver':
       case 'idle':
         break;
@@ -416,7 +459,11 @@ export class Game {
   }
 
   private spawnWave() {
-    const n = this.rng.int(this.level.waveMin, this.level.waveMax);
+    const rolled = this.rng.int(this.level.waveMin, this.level.waveMax);
+    // The multiplier is applied after the roll, not folded into it, so the
+    // stream advances by the wave size either way and both peers — always in
+    // the same mode as each other — stay on the same sequence.
+    const n = this.mode === 'versus' ? Math.ceil(rolled * VERSUS_WAVE_BONUS) : rolled;
     for (let i = 0; i < n; i++) this.launch(this.rng.pick(this.level.fruits));
     if (this.rng.next() < this.level.bombChance) this.launch('bomb');
   }
@@ -471,14 +518,15 @@ export class Game {
   }
 
   private finishMatch() {
-    this.phase = 'gameOver';
     if (this.score > this.best) {
       this.best = this.score;
       localStorage.setItem('fruity.best', String(this.best));
     }
     this.sfx.gameOver();
     this.onMatchOver?.(this.score);
-    this.hud.showVersusResult(this.score, this.remote);
+    // Reading `remote` at display time rather than now means a `done` arriving
+    // while the blender runs is already reflected when the panel appears.
+    this.startSmoothie(() => this.hud.showVersusResult(this.score, this.remote));
   }
 
   // ------------------------------------------------------------- interaction
@@ -780,13 +828,121 @@ export class Game {
   }
 
   private endGame(reason: string) {
-    this.phase = 'gameOver';
     if (this.score > this.best) {
       this.best = this.score;
       localStorage.setItem('fruity.best', String(this.best));
     }
     this.sfx.gameOver();
-    this.hud.showGameOver(this.score, this.best, this.levelIndex, reason);
+    this.startSmoothie(() =>
+      this.hud.showGameOver(this.score, this.best, this.levelIndex, reason),
+    );
+  }
+
+  // --------------------------------------------------------------- the finale
+
+  /**
+   * Tips every bowl into the blender before showing the result.
+   *
+   * In a two-player match both bowls go into the same jar, so the match ends on
+   * something the two of them made rather than on a scoreboard. The result
+   * panel is held in `afterSmoothie` and shown when the blender finishes.
+   */
+  private startSmoothie(showResult: () => void) {
+    const mine = this.platter.contents();
+    const theirs = this.mode === 'versus' ? this.remotePlatter.contents() : [];
+    if (!mine.length && !theirs.length) {
+      this.phase = 'gameOver';
+      showResult();
+      return;
+    }
+
+    const { left, right, baseY } = this.platterLayout();
+    const origins =
+      this.mode === 'versus'
+        ? [
+            { x: left, y: baseY },
+            { x: right, y: baseY },
+          ]
+        : [{ x: left, y: baseY }];
+
+    // Interleaved so the two bowls empty together rather than one after the
+    // other, and so the colours go in mixed.
+    const items: FruitId[] = [];
+    for (let i = 0; i < Math.max(mine.length, theirs.length); i++) {
+      if (i < mine.length) items.push(mine[i]);
+      if (i < theirs.length) items.push(theirs[i]);
+    }
+
+    const caption =
+      this.mode === 'versus' ? `You + ${this.remote.name}` : 'Everything you sliced';
+
+    this.phase = 'smoothie';
+    this.afterSmoothie = showResult;
+    this.landedSoFar = 0;
+    this.clearBoard();
+    this.hud.hideOverlay();
+    this.smoothie.start(items, origins, caption, this.width, this.height);
+  }
+
+  private tickSmoothie(dt: number, now: number, hands: ScreenHand[]) {
+    const before = this.smoothie.stage;
+    this.smoothie.update(dt);
+    const after = this.smoothie.stage;
+    if (before !== after) this.onSmoothieStage(after);
+
+    // One plop per arrival, throttled — a full bowl lands two dozen pieces
+    // inside a second and a half, which without this is a machine gun.
+    if (this.smoothie.landed > this.landedSoFar) {
+      this.landedSoFar = this.smoothie.landed;
+      if (now - this.lastPlopAt > 80) {
+        this.lastPlopAt = now;
+        this.sfx.plop(0.6 + Math.random() * 0.8);
+      }
+    }
+
+    // A swung sword over the jar shakes it too, so a camera player is not shut
+    // out of the one interactive thing on the screen.
+    for (const hand of hands) {
+      const sword = this.swordFor(hand, now);
+      this.trail(hand, now, false, sword.x2, sword.y2);
+      if (!sword.hot || now - this.lastHandShakeAt < 220) continue;
+      if (!this.smoothie.hits(sword.x2, sword.y2) && !this.smoothie.hits(hand.x, hand.y)) continue;
+      this.lastHandShakeAt = now;
+      if (this.shakeSmoothie()) this.onSmoothieShake?.();
+    }
+
+    if (after === 'done') {
+      this.phase = 'gameOver';
+      const show = this.afterSmoothie;
+      this.afterSmoothie = null;
+      show?.();
+    }
+  }
+
+  private onSmoothieStage(stage: SmoothieStage) {
+    if (stage === 'blend') {
+      this.sfx.motorStart();
+    } else if (stage === 'pour') {
+      this.sfx.motorStop();
+      this.sfx.glug();
+    } else if (stage === 'done') {
+      this.sfx.motorStop();
+      this.sfx.chime();
+    }
+  }
+
+  /**
+   * Someone tapped the jar. Returns whether the shake landed, so only a real
+   * one is forwarded to the other player. Remote shakes arrive here with no
+   * coordinates — the hit test already happened on their screen.
+   */
+  shakeSmoothie(): boolean {
+    if (this.phase !== 'smoothie') return false;
+    if (!this.smoothie.shake()) return false;
+    this.sfx.rattle();
+    this.sfx.motorRev();
+    this.shake = Math.max(this.shake, 0.3);
+    return true;
   }
 
   // --------------------------------------------------------------- rendering
@@ -809,7 +965,10 @@ export class Game {
     }
 
     this.fx.draw(ctx);
-    this.drawPlatters(ctx);
+    // The bowls have been tipped into the jar by now, so drawing them would
+    // show the fruit in two places at once.
+    if (this.phase === 'smoothie') this.smoothie.draw(ctx, this.dpr);
+    else this.drawPlatters(ctx);
 
     if (this.mode === 'versus') this.drawGhost(ctx, now);
     for (const hand of hands) this.drawHand(ctx, hand, now);
@@ -824,12 +983,17 @@ export class Game {
    * of the screen is where fruit falls, and the "show your hand" prompt sits
    * along the bottom edge.
    */
-  private drawPlatters(ctx: CanvasRenderingContext2D) {
+  /** Shared by the bowls and by the smoothie, which flies fruit out of them. */
+  private platterLayout() {
     const H = this.height;
     const W = this.width;
     const w = clamp(Math.min(W * 0.15, H * 0.26), 90, 260);
-    const baseY = H - H * 0.075;
     const inset = W * 0.035 + w * 0.5;
+    return { w, baseY: H - H * 0.075, left: inset, right: W - inset };
+  }
+
+  private drawPlatters(ctx: CanvasRenderingContext2D) {
+    const { w, baseY, left: inset, right: rightX } = this.platterLayout();
 
     if (this.mode === 'solo') {
       this.platter.draw(ctx, inset, baseY, w, this.dpr, SLICE_COLOR);
@@ -841,7 +1005,6 @@ export class Game {
     this.platter.draw(ctx, inset, baseY, w, this.dpr, SLICE_COLOR);
     this.platterLabel(ctx, inset, baseY, w, `You  ${this.score}`, SLICE_COLOR);
 
-    const rightX = W - inset;
     this.remotePlatter.draw(ctx, rightX, baseY, w, this.dpr, GHOST_COLOR);
     // Connection trouble is reported here now that the opponent card is gone.
     const theirLabel = this.remote.connected

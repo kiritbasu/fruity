@@ -128,4 +128,109 @@ export class Sfx {
   gameOver() {
     [440, 349, 262].forEach((f, i) => this.tone(f, f * 0.98, 0.4, 'sine', 0.18, i * 0.18));
   }
+
+  // ------------------------------------------------------------ the smoothie
+
+  /**
+   * The blender motor: a sustained voice rather than a one-shot, because it has
+   * to run for as long as the blend does and bend when someone shakes the jar.
+   */
+  private motor: {
+    osc: OscillatorNode;
+    grind: AudioBufferSourceNode;
+    gain: GainNode;
+    filter: BiquadFilterNode;
+  } | null = null;
+
+  motorStart() {
+    if (!this.ctx || !this.master || !this.noiseBuffer || !this.enabled || this.motor) return;
+    const t0 = this.t;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.2, t0 + 0.35);
+    gain.connect(this.master);
+
+    // Low sawtooth for the motor itself.
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(38, t0);
+    osc.frequency.linearRampToValueAtTime(74, t0 + 0.4);
+
+    // Looped noise through a lowpass for the sound of fruit being thrown around.
+    const grind = this.ctx.createBufferSource();
+    grind.buffer = this.noiseBuffer;
+    grind.loop = true;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(300, t0);
+    filter.frequency.linearRampToValueAtTime(1100, t0 + 0.4);
+    filter.Q.value = 3;
+
+    const grindGain = this.ctx.createGain();
+    grindGain.gain.value = 0.5;
+
+    osc.connect(gain);
+    grind.connect(filter).connect(grindGain).connect(gain);
+    osc.start(t0);
+    grind.start(t0);
+    this.motor = { osc, grind, gain, filter };
+  }
+
+  /** A shake revs the motor and opens the filter for a moment. */
+  motorRev() {
+    if (!this.motor || !this.ctx) return;
+    const t0 = this.t;
+    const { osc, filter } = this.motor;
+    osc.frequency.cancelScheduledValues(t0);
+    osc.frequency.setValueAtTime(osc.frequency.value, t0);
+    osc.frequency.linearRampToValueAtTime(112, t0 + 0.07);
+    osc.frequency.linearRampToValueAtTime(74, t0 + 0.45);
+    filter.frequency.cancelScheduledValues(t0);
+    filter.frequency.setValueAtTime(filter.frequency.value, t0);
+    filter.frequency.linearRampToValueAtTime(2400, t0 + 0.07);
+    filter.frequency.linearRampToValueAtTime(1100, t0 + 0.45);
+  }
+
+  motorStop() {
+    if (!this.motor || !this.ctx) return;
+    const { osc, grind, gain } = this.motor;
+    const t0 = this.t;
+    gain.gain.cancelScheduledValues(t0);
+    gain.gain.setValueAtTime(gain.gain.value, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    // Wind the pitch down so it spins to a halt rather than being cut off.
+    osc.frequency.cancelScheduledValues(t0);
+    osc.frequency.setValueAtTime(osc.frequency.value, t0);
+    osc.frequency.linearRampToValueAtTime(24, t0 + 0.3);
+    osc.stop(t0 + 0.36);
+    grind.stop(t0 + 0.36);
+    this.motor = null;
+  }
+
+  /** Ice and fruit knocking about inside the jar when it gets shaken. */
+  rattle() {
+    this.noise(0.09, 0.22, 2600, 700, 1.6);
+    this.tone(180 + Math.random() * 90, 90, 0.1, 'square', 0.09);
+  }
+
+  /** Fruit dropping into the jar. */
+  plop(weight = 1) {
+    const p = 1.2 / (0.6 + weight * 0.4);
+    this.tone(320 * p, 120 * p, 0.11, 'sine', 0.13);
+    this.noise(0.07, 0.14, 1400 * p, 500 * p, 1.2);
+  }
+
+  /** Thick liquid settling once the blades stop. */
+  glug() {
+    [0, 0.13, 0.25].forEach((d, i) =>
+      this.tone(220 - i * 40, 110 - i * 25, 0.16, 'sine', 0.16, d),
+    );
+    this.noise(0.4, 0.1, 700, 200, 0.9, 0.05);
+  }
+
+  /** Drink's ready. */
+  chime() {
+    [784, 988, 1319].forEach((f, i) => this.tone(f, f, 0.5, 'sine', 0.16, i * 0.1));
+  }
 }

@@ -54,6 +54,15 @@ export class Platter {
     return this.total;
   }
 
+  /**
+   * What is visibly in the bowl, for the end-of-game blend. The capped visible
+   * pile is the right source: the smoothie should contain what the player has
+   * been watching accumulate, not a number they never saw.
+   */
+  contents(): FruitId[] {
+    return this.items.map((i) => i.id);
+  }
+
   update(dt: number) {
     for (const it of this.items) if (it.age < 1) it.age = Math.min(1, it.age + dt / 0.28);
   }
