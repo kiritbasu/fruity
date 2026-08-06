@@ -6,13 +6,12 @@
 and trail in blue, the opponent's ghosted in pink, with the match clock and their
 live score](docs/screenshot.png)
 
-Slice flying fruit with your bare hand. A webcam tracks your hand, a sword
-follows it, and anything you swing through gets cut in half. Two people can race
-each other over a direct browser-to-browser link by sharing one URL.
+Wave your hand at your webcam to swing a sword. Slice the fruit, miss the bombs.
+Two people can race each other by sharing one link.
 
-Hand tracking runs in the browser. Camera frames are never uploaded. In a
-two-player match your hand position and score go straight to the other player;
-camera video is sent only if you turn it on.
+Hand tracking runs in the browser and camera frames are never uploaded. In a
+two-player match your hand position and score go straight to the other player.
+Camera video is sent only if you turn it on.
 
 ```bash
 npm install

@@ -94,11 +94,11 @@ export class Lobby {
     this.hud.showRaw(`
       <div class="kicker">Two players</div>
       <h2>Play with a friend</h2>
-      <p>You each get your own board with the <b>same fruit in the same order</b>,
-      so it is a fair race. Highest score after ${Math.round(MATCH_SECONDS / 60)} minutes wins.</p>
+      <p>You each get your own board, with <b>the same fruit in the same
+      order</b>. Highest score after ${Math.round(MATCH_SECONDS / 60)} minutes wins.</p>
       <div class="opt">
         <label><input type="checkbox" id="oppVideoOpt" ${hasCamera ? '' : 'disabled'} />
-        Send my camera too${hasCamera ? '' : ' (needs the camera)'}</label>
+        Send my camera too${hasCamera ? '' : ' (needs a webcam)'}</label>
       </div>
       <button class="primary wide" data-action="host">Start a game</button>
       <button class="ghost wide" data-action="join">Join with a code</button>
@@ -162,8 +162,8 @@ export class Lobby {
       <div class="kicker">Your game is ready</div>
       <h2>Send them this link</h2>
       <button class="primary wide" data-action="copylink">Copy invite link</button>
-      <p class="hint tight">Paste it into FaceTime or
-      Messages. They just tap it — nothing to type.</p>
+      <p class="hint tight">Send it however you like. They tap it and they're in,
+      with nothing to type.</p>
       <div class="code-or">or read them this code</div>
       <div class="big-code">${code}</div>
       <div class="loader"><span class="spinner"></span><span>Waiting for them to join…</span></div>
@@ -200,7 +200,7 @@ export class Lobby {
   private askForCode(video: boolean) {
     this.hud.showRaw(`
       <div class="kicker">Join a game</div>
-      <h2>Type their code</h2>
+      <h2>Enter their code</h2>
       <input class="big-input" id="joinCode" inputmode="numeric" pattern="[0-9]*"
              maxlength="6" placeholder="000000" autocomplete="off" />
       <button class="primary wide" data-action="go">Join</button>
@@ -269,8 +269,8 @@ export class Lobby {
   private showRelayUnavailable(detail: string) {
     this.hud.showRaw(`
       <h2>Invites are unavailable</h2>
-      <div class="error">${escapeHtml(detail)}<br /><br />The invite service could not
-      be reached, so there is no way to set up a game right now.</div>
+      <div class="error">${escapeHtml(detail)}<br /><br />We couldn't reach the
+      invite service, so a game can't be set up right now.</div>
       <button class="primary" data-action="retry">Try again</button>
       <button class="ghost" data-action="solo">Back to solo</button>
     `);
@@ -316,7 +316,7 @@ export class Lobby {
       this.hud.showRaw(`
         <div class="kicker">Connected</div>
         <h2>Starting in ${n}…</h2>
-        <p>You are both in. Same fruit, same order — go fast.</p>
+        <p>You're both in. Same fruit for both of you. Go fast.</p>
         <button class="primary" data-action="now">Start now</button>
       `);
       this.on('now', () => this.session?.startMatch());
@@ -330,7 +330,7 @@ export class Lobby {
     this.hud.showRaw(`
       <div class="kicker">Connected</div>
       <h2>You're in!</h2>
-      <p>Hold your hand up — the game starts in a moment.</p>
+      <p>Hold your hand up. The game starts in a moment.</p>
       <div class="loader"><span class="spinner"></span><span>Get ready</span></div>
     `);
   }

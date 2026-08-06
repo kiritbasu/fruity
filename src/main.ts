@@ -43,25 +43,24 @@ const hud = new Hud({
 function welcome() {
   hud.showRaw(`
     <h1><span class="melon">\u{1F349}</span> Fruity</h1>
-    <p>Slice flying fruit with your bare hand. Your webcam tracks it, a sword
-    follows it, and anything you swing through gets cut in half. The camera never
-    leaves this tab \u2014 all the vision runs on your machine.</p>
+    <p>Wave your hand at the camera to swing a sword. Slice the fruit,
+    miss the bombs.</p>
     <div class="moves">
       <div class="move" data-a="slice">
         <div class="emoji">\u{1F5E1}\uFE0F</div>
-        <div><b>Swing to slice</b><small>The sword points where your hand points. Sweep it through the fruit \u2014 any hand shape works.</small></div>
+        <div><b>Swing to slice</b><small>The sword follows your hand. Swipe through the fruit to cut it in half.</small></div>
       </div>
       <div class="move" data-a="bomb">
         <div class="emoji">\u{1F4A3}</div>
-        <div><b>Dodge the bombs</b><small>They pulse red. Touch one and you lose a life.</small></div>
+        <div><b>Miss the bombs</b><small>Bombs flash red. Hit one and you lose a life.</small></div>
       </div>
     </div>
     <button class="primary" data-action="begin">Play solo</button>
     <button class="ghost" data-action="versus">Play with a friend</button>
     <div class="foot">
-      Needs a webcam and about 8 MB of model download on first run.<br />
-      No camera? <a href="#" data-action="pointer" class="link">play with the mouse</a><br />
-      <kbd>D</kbd> perf overlay \u00b7 <kbd>M</kbd> mute \u00b7 <kbd>P</kbd> pause
+      You'll need a webcam. The camera is only used to see your hand.<br />
+      No webcam? <a href="#" data-action="pointer" class="link">play with the mouse</a><br />
+      <kbd>D</kbd> stats \u00b7 <kbd>M</kbd> sound \u00b7 <kbd>P</kbd> pause
     </div>
   `);
 
@@ -116,9 +115,9 @@ async function startPointerMode() {
     <h2>No camera needed</h2>
     <div class="moves">
       <div class="move" data-a="slice"><div class="emoji">🖱️</div>
-        <div><b>Swing to slice</b><small>The sword points the way the cursor is travelling. Sweep it through the fruit — no buttons.</small></div></div>
+        <div><b>Swing to slice</b><small>The sword follows your mouse. Swipe through the fruit. No clicking.</small></div></div>
       <div class="move" data-a="bomb"><div class="emoji">💣</div>
-        <div><b>Dodge the bombs</b><small>They pulse red. Touch one and you lose a life.</small></div></div>
+        <div><b>Miss the bombs</b><small>Bombs flash red. Hit one and you lose a life.</small></div></div>
     </div>
     <button class="primary" data-action="go">Start playing</button>
   `);
@@ -139,11 +138,11 @@ async function startPointerMode() {
 }
 
 async function boot() {
-  hud.showLoading('Starting camera…');
+  hud.showLoading('Starting your camera…');
   try {
     // Audio must be unlocked from the click that got us here.
     const startPromise = tracker.start();
-    hud.showLoading('Loading hand-tracking model (one-time, ~8 MB)…');
+    hud.showLoading('Getting things ready…');
     await startPromise;
   } catch (err) {
     const msg = errorText(err);
@@ -200,14 +199,14 @@ function calibrate(): Promise<void> {
       hud.showRaw(`
         <div class="kicker">Warm-up</div>
         <h2>${seen ? 'Got you' : 'Raise your hand'}</h2>
-        <p>Hold your hand up so the camera can see it, then swing it like a sword.</p>
+        <p>Hold your hand up where the camera can see it.</p>
         <div class="moves">
           <div class="move ${seen ? 'active done' : ''}" data-a="slice">
             <div class="emoji">${seen ? '\u{1F5E1}\uFE0F' : '\u{1F44B}'}</div>
-            <div><b>${seen ? 'Hand tracked' : 'Looking for your hand\u2026'}</b><small>${
+            <div><b>${seen ? 'Got it' : 'Looking for your hand\u2026'}</b><small>${
               seen
-                ? 'The sword follows your palm. Sweep it through the fruit.'
-                : 'Good light helps. Keep your whole hand in frame.'
+                ? 'Now swing it like a sword.'
+                : 'Keep your whole hand in view. Good light helps.'
             }</small></div>
             <div class="check">${seen ? '\u2705' : '\u2B1C\uFE0F'}</div>
           </div>
@@ -301,13 +300,12 @@ function invited(code: string) {
     <h1><span class="melon">\u{1F349}</span> Fruity</h1>
     <div class="kicker">You've been invited</div>
     <h2>Game ${code}</h2>
-    <p>Tap to join. You'll wave your hand at the camera and slice fruit — first
-    one to the highest score wins.</p>
+    <p>Tap to join. Wave your hand at the camera to swing a sword and slice
+    the fruit. Highest score wins.</p>
     <button class="primary wide big" data-action="join">Join the game</button>
     <div class="foot">
-      Uses your camera to see where your hand is. The video stays on this
-      machine; only your hand position and score go to the other player.<br />
-      No camera? <a href="#" data-action="pointer" class="link">use the mouse instead</a>
+      The camera is only used to see your hand.<br />
+      No webcam? <a href="#" data-action="pointer" class="link">use the mouse instead</a>
     </div>
   `);
   hud.panelEl.querySelector('[data-action="join"]')?.addEventListener('click', () => {

@@ -47,7 +47,7 @@ export const LEVELS: readonly LevelDef[] = [
   {
     index: 1,
     name: 'Juice Bar',
-    brief: 'More on the vine. Keep the blade moving.',
+    brief: 'More fruit now. Keep the blade moving.',
     fruits: ['watermelon', 'orange', 'tomato', 'strawberry'],
     quota: 14,
     spawnInterval: 2,
@@ -59,7 +59,7 @@ export const LEVELS: readonly LevelDef[] = [
   {
     index: 2,
     name: 'Grove',
-    brief: 'Bombs from here on. Do not touch them.',
+    brief: 'Bombs from now on. Don’t touch them.',
     fruits: ['watermelon', 'banana', 'orange', 'coconut', 'strawberry'],
     quota: 18,
     spawnInterval: 1.85,
@@ -71,7 +71,7 @@ export const LEVELS: readonly LevelDef[] = [
   {
     index: 3,
     name: 'Mixed Crate',
-    brief: 'Two or three at a time. Sweep, don’t stab.',
+    brief: 'Two or three at a time. Long sweeps work best.',
     fruits: ['watermelon', 'strawberry', 'orange', 'coconut', 'banana', 'grapes'],
     quota: 22,
     spawnInterval: 1.65,
@@ -83,7 +83,7 @@ export const LEVELS: readonly LevelDef[] = [
   {
     index: 4,
     name: 'Market Rush',
-    brief: 'Faster arcs and more bombs in the mix.',
+    brief: 'Faster fruit, and more bombs.',
     fruits: ['pineapple', 'grapes', 'banana', 'coconut', 'orange', 'strawberry', 'tomato'],
     quota: 26,
     spawnInterval: 1.45,

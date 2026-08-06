@@ -180,7 +180,7 @@ export class Hud {
         <div class="stat"><b>${Number(remote.score) || 0}</b><small>${name}</small></div>
       </div>
       <p class="hint">${
-        remote.done ? 'Both players finished.' : 'Waiting for them to finish…'
+        remote.done ? 'You both finished.' : 'Waiting for them to finish…'
       }</p>
       <button class="primary" data-action="rematch">Rematch</button>
       <button class="ghost" data-action="restart">Back to solo</button>
@@ -202,7 +202,7 @@ export class Hud {
   showLoading(message: string) {
     this.show(`
       <h1><span class="melon">🍉</span> Fruity</h1>
-      <p>Gesture-controlled fruit carnage, running entirely in your browser.</p>
+      <p>Slice fruit by waving your hand at the camera.</p>
       <div class="loader"><span class="spinner"></span><span>${message}</span></div>
     `);
   }
@@ -246,7 +246,7 @@ export class Hud {
   showPaused() {
     this.show(`
       <h2>Paused</h2>
-      <p>Your hand took a break.</p>
+      <p>Take your time.</p>
       <button class="primary" data-action="resume">Resume</button>
     `);
   }
@@ -263,7 +263,7 @@ export class Hud {
       </div>
       <button class="primary" data-action="restart">Play again</button>
       <div class="foot">
-        <kbd>2</kbd> play with a friend · <kbd>D</kbd> perf overlay · <kbd>M</kbd> mute
+        <kbd>2</kbd> play with a friend · <kbd>D</kbd> stats · <kbd>M</kbd> sound
       </div>
     `);
   }
