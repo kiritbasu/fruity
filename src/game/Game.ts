@@ -6,6 +6,7 @@ import { Blade, Chunk, Fruit, GRAVITY_PER_H } from './entities';
 import { FRUITS, SLICE_COLOR, type FruitId } from './fruitDefs';
 import { levelAt, type LevelDef } from './levels';
 import { clearSpriteCache, prewarm } from './sprites';
+import { Platter } from './platter';
 import { bladeSegment, clearSwordCache, drawSword } from './sword';
 import { Rng, randomSeed } from '../util/rng';
 import { emptyRemote, type RemoteState } from '../net/protocol';
@@ -76,6 +77,9 @@ export class Game {
   private blades = new Map<string, Blade>();
   private swords = new Map<string, SwordState>();
   private fx = new Effects();
+  /** What each player has cut. The visible scoreboard. */
+  readonly platter = new Platter();
+  readonly remotePlatter = new Platter();
   readonly sfx = new Sfx();
 
   phase: Phase = 'idle';
@@ -113,7 +117,7 @@ export class Game {
   onLocalHand: ((h: { x: number; y: number; dx: number; dy: number; len: number; hot: boolean }) => void) | null = null;
   onScoreChanged: ((score: number, combo: number) => void) | null = null;
   /** Fires when this player cuts a fruit, so it can leave the other board too. */
-  onFruitCut: ((uid: number, angle: number) => void) | null = null;
+  onFruitCut: ((uid: number, angle: number, fruit: FruitId) => void) | null = null;
   /** Which candidate pair the peer connection settled on, for the debug overlay. */
   netRoute: (() => string) | null = null;
   onMatchOver: ((score: number) => void) | null = null;
@@ -177,6 +181,8 @@ export class Game {
     this.lives = START_LIVES;
     this.levelIndex = 0;
     this.remoteBlade.clear();
+    this.platter.clear();
+    this.remotePlatter.clear();
     this.beginLevel(0);
     this.lastFrame = performance.now();
     if (!this.rafId) this.rafId = requestAnimationFrame(this.frame);
@@ -395,6 +401,8 @@ export class Game {
     for (const c of this.chunks) c.update(dt, this.height, gravity);
 
     this.fx.update(dt);
+    this.platter.update(dt);
+    this.remotePlatter.update(dt);
 
     if (this.phase === 'playing') {
       this.resolveHands(hands, now);
@@ -640,7 +648,8 @@ export class Game {
     this.hud.setScore(this.score, this.combo);
     this.hud.setProgress(this.destroyed, this.level.quota);
     this.onScoreChanged?.(this.score, this.combo);
-    this.onFruitCut?.(fruit.uid, dirAngle);
+    this.platter.add(def.id);
+    this.onFruitCut?.(fruit.uid, dirAngle, def.id);
 
     // In versus the level rotates on the match clock instead, so both players
     // always face the same fruit.
@@ -655,7 +664,11 @@ export class Game {
    * a fruit contested within the round trip counts for both of us and network
    * lag can never take one away.
    */
-  applyRemoteCut(uid: number, angle: number) {
+  applyRemoteCut(uid: number, angle: number, fruitId: FruitId) {
+    // Their platter grows whether or not we still had the fruit: if we cut it
+    // a moment earlier, they still earned it on their own screen.
+    this.remotePlatter.add(fruitId);
+
     const fruit = this.fruits.find((f) => f.state === 'flying' && f.uid === uid);
     if (!fruit) return;
 
@@ -796,6 +809,7 @@ export class Game {
     }
 
     this.fx.draw(ctx);
+    this.drawPlatters(ctx);
 
     if (this.mode === 'versus') this.drawGhost(ctx, now);
     for (const hand of hands) this.drawHand(ctx, hand, now);
@@ -803,6 +817,60 @@ export class Game {
     ctx.restore();
 
     if (this.showDebug) this.drawDebug(ctx);
+  }
+
+  /**
+   * The platters sit along the bottom: one in solo, two side by side in versus
+   * so you can see how the other player is doing without reading their score.
+   */
+  private drawPlatters(ctx: CanvasRenderingContext2D) {
+    const H = this.height;
+    const W = this.width;
+    // Far enough off the bottom to leave room for the label beneath the plate.
+    const baseY = H - H * 0.115;
+
+    if (this.mode === 'solo') {
+      const w = Math.min(W * 0.34, H * 0.5);
+      this.platter.draw(ctx, W * 0.5, baseY, w, this.dpr, SLICE_COLOR);
+      // The score already lives in the corner in solo, so the plate counts
+      // fruit instead of repeating it.
+      const n = this.platter.count;
+      this.platterLabel(ctx, W * 0.5, baseY, w, n ? `${n} sliced` : '', SLICE_COLOR);
+      return;
+    }
+
+    const w = Math.min(W * 0.3, H * 0.44);
+    const inset = W * 0.03;
+    const leftX = inset + w * 0.5;
+    const rightX = W - inset - w * 0.5;
+    this.platter.draw(ctx, leftX, baseY, w, this.dpr, SLICE_COLOR);
+    this.platterLabel(ctx, leftX, baseY, w, `You  ${this.score}`, SLICE_COLOR);
+    this.remotePlatter.draw(ctx, rightX, baseY, w, this.dpr, GHOST_COLOR);
+    // Connection trouble is reported here now that the opponent card is gone.
+    const theirLabel = this.remote.connected
+      ? `${this.remote.name}  ${this.remote.score}`
+      : `${this.remote.name}  reconnecting…`;
+    this.platterLabel(ctx, rightX, baseY, w, theirLabel, GHOST_COLOR);
+  }
+
+  private platterLabel(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    baseY: number,
+    w: number,
+    text: string,
+    colour: string,
+  ) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = `800 ${Math.round(w * 0.062)}px ui-rounded, "Avenir Next", system-ui, sans-serif`;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.strokeText(text, cx, baseY + w * 0.045);
+    ctx.fillStyle = colour;
+    ctx.fillText(text, cx, baseY + w * 0.045);
+    ctx.restore();
   }
 
   private drawFruit(ctx: CanvasRenderingContext2D, fruit: Fruit) {

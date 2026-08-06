@@ -135,6 +135,19 @@ On top of that, the position is projected forward by up to one tracking interval
 so the sword does not visibly lag between camera samples. Rendering runs at 60Hz
 whatever the camera is doing.
 
+### The platter
+
+Cut fruit lands on a platter along the bottom of the screen and piles up. That
+is the real scoreboard. A number tells you how you are doing; a heap of fruit
+shows it, and in a two-player match you get two platters side by side and can
+read both at a glance without comparing digits.
+
+Halves are drawn cut-face up, the way fruit sits on an actual platter, and
+shrink as the heap grows so it keeps visibly building rather than filling one
+row and stopping. The opponent's platter is filled by the same cut messages that
+remove the fruit, so it costs nothing extra to keep in step, and it fills even
+for a fruit you both reached at once.
+
 ### Sound
 
 Every effect is synthesised with the Web Audio API at runtime, so there are no

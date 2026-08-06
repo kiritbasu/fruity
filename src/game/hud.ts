@@ -34,6 +34,7 @@ export class Hud {
   private oppScore = $<HTMLElement>('oppScore');
   private oppState = $<HTMLElement>('oppState');
   private oppVideo = $<HTMLVideoElement>('oppVideo');
+  private oppMeta = $<HTMLElement>('oppMeta');
   private clock = $<HTMLElement>('matchClock');
   private clockBar = $<HTMLElement>('matchClockBar');
 
@@ -126,7 +127,17 @@ export class Hud {
 
   /** Swaps the HUD between the solo level display and the versus race panel. */
   setVersusChrome(on: boolean) {
-    this.opponent.hidden = !on;
+    /*
+     * The platters show both players' scores during a match, so the corner
+     * score and the opponent card would only repeat them. The corner block is
+     * made invisible rather than removed: the header is a three-column grid,
+     * and taking the block out of it slides the clock off centre.
+     */
+    // The card itself only survives as a frame for the camera tile; its name
+    // and score moved to the platter labels.
+    this.oppMeta.hidden = true;
+    if (!on) this.opponent.hidden = true;
+    this.scoreEl.parentElement!.parentElement!.classList.toggle('blank', on);
     this.clock.hidden = !on;
     // A timed race has no elimination, so lives would be misleading.
     this.livesEl.hidden = on;
@@ -151,10 +162,14 @@ export class Hud {
     if (!stream) {
       this.oppVideo.srcObject = null;
       this.oppVideo.hidden = true;
+      this.opponent.hidden = true;
       return;
     }
     this.oppVideo.srcObject = stream;
     this.oppVideo.hidden = false;
+    // Reveal the card only now, and only as a frame around the video.
+    this.oppMeta.hidden = true;
+    this.opponent.hidden = false;
     void this.oppVideo.play().catch(() => {});
   }
 

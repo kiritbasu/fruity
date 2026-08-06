@@ -703,3 +703,9 @@ button.primary.big {
 .panel .hint.tight {
   margin: 10px 0 0;
 }
+
+/* Keeps a HUD block's grid cell while hiding its contents, so removing the
+   score does not slide the clock out of the centre column. */
+.blank {
+  visibility: hidden;
+}

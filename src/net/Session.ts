@@ -1,9 +1,14 @@
 import { Peer, type PeerStatus } from './Peer';
 import type { NetMsg, Role } from './protocol';
 import { safeLabel, safeNumber } from '../util/html';
+import { FRUITS, type FruitId } from '../game/fruitDefs';
 import { randomSeed } from '../util/rng';
 import type { Game } from '../game/Game';
 import type { Hud } from '../game/hud';
+
+/** Untrusted fruit names must resolve to a real one before they reach the game. */
+const safeFruitId = (v: unknown): FruitId =>
+  typeof v === 'string' && v in FRUITS ? (v as FruitId) : 'watermelon';
 
 /** Length of a versus match, in seconds. */
 export const MATCH_SECONDS = 180;
@@ -56,7 +61,8 @@ export class Session {
 
     this.game.onScoreChanged = (score, combo) => this.peer.send({ t: 'score', score, combo });
 
-    this.game.onFruitCut = (uid, angle) => this.peer.send({ t: 'cut', uid, a: angle });
+    this.game.onFruitCut = (uid, angle, fruit) =>
+      this.peer.send({ t: 'cut', uid, a: angle, f: fruit });
 
     // Sampled rather than awaited, so the debug overlay never blocks a frame.
     let route = 'connecting';
@@ -106,6 +112,7 @@ export class Session {
         this.game.applyRemoteCut(
           Math.round(safeNumber(msg.uid, 0, 1e9, -1)),
           safeNumber(msg.a, -Math.PI * 2, Math.PI * 2),
+          safeFruitId(msg.f),
         );
         break;
 

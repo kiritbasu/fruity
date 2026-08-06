@@ -45,6 +45,9 @@ export interface CutMsg {
   uid: number;
   /** Angle of the cut, so the halves fall apart the same way on both screens. */
   a: number;
+  /** Which fruit it was. Sent rather than looked up, because the local slot may
+   *  already have been recycled by a later spawn. */
+  f: string;
 }
 
 export interface DoneMsg {
