@@ -6,6 +6,13 @@ export type SmoothieStage = 'fill' | 'blend' | 'pour' | 'done';
 
 /** Fruit flying out of the bowls and into the jar. */
 const FILL_SECONDS = 1.9;
+/**
+ * How long one piece takes to fly from its bowl into the jar. Launches are
+ * spread across `FILL_SECONDS` minus this, so the last piece lands exactly as
+ * the stage ends — spread across the whole window instead and the stragglers
+ * are still mid-air when the flyers stop being drawn, and vanish.
+ */
+const FLIGHT_SECONDS = 0.65;
 /** Blades running. This is the stretch players can tap to shake. */
 const BLEND_SECONDS = 5;
 /** Settling, foam, and the finished drink. */
@@ -168,11 +175,21 @@ export class Smoothie {
         // Spread the launch point across the bowl so they don't fly as a column.
         x0: origin.x + (Math.random() - 0.5) * w * 0.06,
         y0: origin.y + (Math.random() - 0.5) * h * 0.04,
-        delay: (i / Math.max(1, items.length)) * FILL_SECONDS * 0.75,
+        delay: (i / Math.max(1, items.length)) * (FILL_SECONDS - FLIGHT_SECONDS),
         spin: (Math.random() - 0.5) * 10,
         lift: 0.18 + Math.random() * 0.22,
       });
     }
+  }
+
+  /**
+   * Keeps the blender centred if the window changes mid-blend. Flyer origins
+   * are left alone: they are only on screen for the first two seconds, and a
+   * mispositioned tap target matters more than a mispositioned launch.
+   */
+  resize(w: number, h: number) {
+    this.W = w;
+    this.H = h;
   }
 
   private geom(): Geometry {
@@ -254,10 +271,9 @@ export class Smoothie {
     }
 
     if (this.stage === 'fill') {
-      // Flight takes 0.65s from each flyer's own start, so this is how many
-      // have arrived. The game turns each new arrival into a plop.
+      // How many have reached the jar. The game turns each new one into a plop.
       let arrived = 0;
-      for (const f of this.flyers) if (this.t - f.delay >= 0.65) arrived++;
+      for (const f of this.flyers) if (this.t - f.delay >= FLIGHT_SECONDS) arrived++;
       this.landed = arrived;
     }
 
@@ -449,7 +465,6 @@ export class Smoothie {
       ctx.restore();
     }
     ctx.restore();
-    ctx.globalAlpha = 1;
   }
 
   private drawGlass(ctx: CanvasRenderingContext2D, g: Geometry) {
@@ -547,7 +562,7 @@ export class Smoothie {
     for (const f of this.flyers) {
       const local = this.t - f.delay;
       if (local <= 0) continue;
-      const p = clamp(local / 0.65, 0, 1);
+      const p = clamp(local / FLIGHT_SECONDS, 0, 1);
       if (p >= 1) continue;
 
       // Ease out, and bow the path upward so they lob in rather than slide.
@@ -576,7 +591,8 @@ export class Smoothie {
     if (this.stage === 'fill') {
       sub = `${this.fruitCount} fruit`;
     } else if (this.stage === 'blend') {
-      sub = this.shakes ? `${this.shakes} shakes` : 'tap the blender to shake it';
+      // Deliberately not "tap": a camera player shakes it by swinging at it.
+      sub = this.shakes ? `${this.shakes} shakes` : 'give the blender a shake';
     } else {
       line = 'One smoothie';
       sub = this.shakes ? `shaken ${this.shakes} times` : 'perfectly smooth';

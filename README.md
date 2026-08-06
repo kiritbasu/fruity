@@ -201,19 +201,23 @@ responsive the game feels than any of the latency work.
 
 ### Multiplayer without a game server
 
-Four things cross the network: a 32-bit seed when the match starts, hand
-positions at about 30Hz, scores, and one small message per fruit cut. Roughly
-5 kbps.
+Five things cross the network: a 32-bit seed when the match starts, hand
+positions at about 30Hz, scores, one small message per fruit cut, and a shake
+when someone rattles the blender at the end. Roughly 5 kbps.
 
 Both browsers generate identical fruit from that seed, so the fruit itself is
 never sent and there is no world state to reconcile. A cut names the fruit by an
-id both sides worked out independently, because spawn order is identical. Two
+id both sides worked out independently, because spawn order is identical. Three
 details make that hold:
 
 - Physics are measured in screen heights per second, not pixels, so two players
   on different sized screens get the same fruit in the same places.
 - Spawn timing runs off the clock rather than off accumulated frame times, so
   two machines running at different frame rates do not drift apart.
+- Two-player waves are bigger, and the multiplier is applied *after* the random
+  roll rather than folded into it. The seeded stream therefore advances by the
+  same amount in either mode, and since both peers are always in the same mode
+  as each other, they stay on the same sequence.
 
 Each player scores only their own cuts, so a cut message removes the fruit but
 awards nothing. That is what makes a contested fruit count for both of them: if
@@ -366,7 +370,13 @@ A few things to know before changing them:
   random values before checking whether a fruit slot is free, because returning
   early would leave the two players' random sequences at different positions.
 - **Tuning constants are at the top of `Game.ts`**: cut threshold, how long the
-  blade stays "hot" after a fast swing, hit padding, starting lives.
+  blade stays "hot" after a fast swing, hit padding, starting lives, the
+  two-player wave multiplier, and the fruit pool size. The pool has to stay
+  comfortably above the busiest level's peak — measure it before trimming, since
+  a pool that runs dry drops spawns with no error anywhere.
+- **Levels are a plain table in `levels.ts`.** Difficulty is meant to come from
+  wave size and bombs, with `tempo` shortening hang time as the real dial.
+  Raising spawn rates alone mostly just exhausts the fruit pool.
 - **`gestures.ts` still classifies open hand, fist, and pinch** even though the
   game no longer uses them. It feeds the debug overlay and is where you would
   hook in extra moves. Pose detection was removed from gameplay because it was

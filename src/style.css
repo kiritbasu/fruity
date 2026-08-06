@@ -75,6 +75,12 @@ body {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
 }
 
+/* Same trap as `.hand-warning[hidden]`: `display: grid` above outranks the
+ * user-agent's `[hidden]` rule, and #hud starts hidden in the markup, so
+ * without this the score and lives sit on top of the welcome screen. */
+#hud[hidden] {
+  display: none;
+}
 .hud-left {
   justify-self: start;
 }
@@ -217,6 +223,14 @@ body {
   pointer-events: none;
 }
 
+/*
+ * `display: flex` above outranks the user-agent's `[hidden] { display: none }`,
+ * so without this the nag appears once and then never leaves — the code sets
+ * `.hidden = true` and nothing happens.
+ */
+.hand-warning[hidden] {
+  display: none;
+}
 .hand-warning .dot {
   width: 8px;
   height: 8px;

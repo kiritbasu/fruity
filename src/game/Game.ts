@@ -304,6 +304,7 @@ export class Game {
     clearSpriteCache();
     clearSwordCache();
     this.fx.resize(this.width, this.height, this.dpr);
+    this.smoothie.resize(this.width, this.height);
   };
 
   private radiusFor(id: FruitId) {
@@ -324,7 +325,9 @@ export class Game {
     this.governQuality();
 
     const hands = this.tracker.getHands(now, this.width, this.height);
-    this.hud.setHandPresent(hands.length > 0);
+    // Nothing is being played during the blender, so prompting for a hand there
+    // is noise printed over the top of the one thing worth looking at.
+    this.hud.setHandPresent(hands.length > 0 || this.phase === 'smoothie');
 
     this.update(dt, now, hands);
     this.broadcastHand(now, hands);
@@ -423,7 +426,7 @@ export class Game {
       }
 
       case 'smoothie':
-        this.tickSmoothie(dt, now, hands);
+        this.tickSmoothie(dt, now);
         break;
 
       case 'gameOver':
@@ -451,9 +454,13 @@ export class Game {
       this.resolveHands(hands, now);
     } else {
       // Keep the sword tracking between rounds, just without a cutting edge.
+      // This is the only place the sword advances outside play: swordFor stores
+      // this frame's segment as next frame's "previous", so calling it twice in
+      // one frame would leave prev equal to current.
       for (const h of hands) {
         const s = this.swordFor(h, now);
         this.trail(h, now, false, s.x2, s.y2);
+        if (this.phase === 'smoothie' && s.hot) this.swingAtBlender(s, h, now);
       }
     }
   }
@@ -884,7 +891,7 @@ export class Game {
     this.smoothie.start(items, origins, caption, this.width, this.height);
   }
 
-  private tickSmoothie(dt: number, now: number, hands: ScreenHand[]) {
+  private tickSmoothie(dt: number, now: number) {
     const before = this.smoothie.stage;
     this.smoothie.update(dt);
     const after = this.smoothie.stage;
@@ -900,23 +907,23 @@ export class Game {
       }
     }
 
-    // A swung sword over the jar shakes it too, so a camera player is not shut
-    // out of the one interactive thing on the screen.
-    for (const hand of hands) {
-      const sword = this.swordFor(hand, now);
-      this.trail(hand, now, false, sword.x2, sword.y2);
-      if (!sword.hot || now - this.lastHandShakeAt < 220) continue;
-      if (!this.smoothie.hits(sword.x2, sword.y2) && !this.smoothie.hits(hand.x, hand.y)) continue;
-      this.lastHandShakeAt = now;
-      if (this.shakeSmoothie()) this.onSmoothieShake?.();
-    }
-
     if (after === 'done') {
       this.phase = 'gameOver';
       const show = this.afterSmoothie;
       this.afterSmoothie = null;
       show?.();
     }
+  }
+
+  /**
+   * Swinging at the jar shakes it, so a camera player is not shut out of the
+   * one interactive thing on the screen — they have no pointer to tap with.
+   */
+  private swingAtBlender(sword: SwordPose, hand: ScreenHand, now: number) {
+    if (now - this.lastHandShakeAt < 220) return;
+    if (!this.smoothie.hits(sword.x2, sword.y2) && !this.smoothie.hits(hand.x, hand.y)) return;
+    this.lastHandShakeAt = now;
+    if (this.shakeSmoothie()) this.onSmoothieShake?.();
   }
 
   private onSmoothieStage(stage: SmoothieStage) {

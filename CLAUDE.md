@@ -34,6 +34,17 @@ slot is free. Returning early would leave the two players' streams at different
 offsets and they would silently start playing different games. If you add a
 spawn path, draw first, bail second.
 
+For the same reason `spawnWave()` applies `VERSUS_WAVE_BONUS` *after* rolling
+the wave size rather than passing a bigger range into the roll. The stream then
+advances by the same amount whatever the mode, and since both peers are always
+in the same mode as each other they stay aligned. Folding the multiplier into
+the `rng.int()` call looks identical and is not.
+
+`MAX_FRUIT` has to stay above the busiest level's peak. Measured worst case is
+40 (last level, two players, nothing cut for twenty seconds) against a pool of
+56. An exhausted pool drops spawns silently — no error, no log, and the two
+players' boards quietly stop matching.
+
 **Physics are in viewport-heights, not pixels.** `GRAVITY_PER_H` and the launch
 maths are relative to screen height so two players on different sized screens
 get the same fruit in the same relative places at the same times. Introducing a
@@ -79,6 +90,27 @@ nothing. Any hand shape cuts now. If you add gesture-dependent moves, make the
 pose *select* an action rather than *enable* one, so a misread costs points
 rather than making the game feel dead.
 
+**Anything toggled with `.hidden` needs its own `[hidden]` rule if its CSS sets
+`display`.** The user-agent's `[hidden] { display: none }` loses to any author
+rule with a `display`, so `el.hidden = true` sets the attribute and nothing
+happens. This shipped twice: the "show your hand" nag appeared once and never
+left, and `#hud` sat on top of the welcome screen. Both are `display: flex` /
+`display: grid` rules. There is a runtime check for it in the review notes —
+set `hidden` on every such element and assert the computed `display` is `none`.
+
+**`Sfx.enabled` is a setter, not a field.** Every one-shot checks it when it
+fires, so muting just stops new sounds starting. The blender motor is a
+sustained voice that is already playing by then, so the setter stops it
+explicitly. Turning `enabled` back into a plain boolean means pressing `M`
+during the end-of-game blend leaves the motor running until the stage changes.
+
+**The sword advances in exactly one place outside play.** `swordFor()` stores
+this frame's segment as next frame's "previous", so calling it twice in a frame
+leaves `prev` equal to `current` and any velocity derived from the pair reads as
+zero. The non-playing branch at the bottom of `Game.update()` is that one place;
+put per-phase hand behaviour inside it rather than in a phase handler that also
+walks `hands`.
+
 **ICE candidates are trickled, not gathered up front.** An earlier version
 froze every candidate into the invite before showing it, which made invites slow
 and left the host's candidates to go stale while the invite waited. `api/room.ts`
@@ -109,8 +141,17 @@ repaint over whatever you set up.
 
 Gameplay constants are at the top of `Game.ts`: cut speed threshold, how long
 the blade stays "hot" after a fast swing, hit padding, starting lives, bomb
-penalty. Tracking constants are at the top of `HandTracker.ts`: inference
-resolution, prediction limits. Levels are a plain table in `levels.ts`.
+penalty, the two-player wave multiplier, and the fruit and chunk pool sizes.
+Tracking constants are at the top of `HandTracker.ts`: inference resolution,
+prediction limits. Levels are a plain table in `levels.ts` — difficulty is meant
+to come from wave size and bombs, with `tempo` shortening hang time as the real
+dial, because hang time is what decides whether a player can reach the fruit.
+
+One balance note worth knowing: a bomb clears every fruit in the air, and waves
+are much bigger than they used to be. In two-player that is now a large swing,
+because the board only clears for whoever hit it (which is deliberate) while the
+other player keeps cutting. If bombs start feeling unfair, that is where to look
+— either the blast radius or `bombChance` in the later levels.
 
 Press `D` in game for frame time, inference cost, target vs actual sample rate,
 and whether inference is running in the worker or on the main thread. If it says

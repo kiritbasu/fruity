@@ -6,7 +6,22 @@ export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
-  enabled = true;
+
+  private muted = false;
+
+  get enabled() {
+    return !this.muted;
+  }
+
+  /**
+   * One-shots check this when they are fired, so muting simply stops new ones
+   * starting. The blender motor is a sustained voice that is already playing by
+   * then, so it has to be stopped here or muting mid-blend leaves it running.
+   */
+  set enabled(on: boolean) {
+    this.muted = !on;
+    if (!on) this.motorStop();
+  }
 
   /** Must be called from a user gesture (browsers block autostart otherwise). */
   resume() {
