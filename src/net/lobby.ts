@@ -94,8 +94,8 @@ export class Lobby {
     this.hud.showRaw(`
       <div class="kicker">Two players</div>
       <h2>Play with a friend</h2>
-      <p>You each get your own board, with <b>the same fruit in the same
-      order</b>. Highest score after ${Math.round(MATCH_SECONDS / 60)} minutes wins.</p>
+      <p>You both slice <b>the same fruit</b>. Get there first and it's yours.
+      Highest score after ${Math.round(MATCH_SECONDS / 60)} minutes wins.</p>
       <div class="opt">
         <label><input type="checkbox" id="oppVideoOpt" ${hasCamera ? '' : 'disabled'} />
         Send my camera too${hasCamera ? '' : ' (needs a webcam)'}</label>
@@ -316,7 +316,7 @@ export class Lobby {
       this.hud.showRaw(`
         <div class="kicker">Connected</div>
         <h2>Starting in ${n}…</h2>
-        <p>You're both in. Same fruit for both of you. Go fast.</p>
+        <p>You're both in. Same fruit, first one to it takes it. Go fast.</p>
         <button class="primary" data-action="now">Start now</button>
       `);
       this.on('now', () => this.session?.startMatch());

@@ -49,11 +49,16 @@ Hit **Play with a friend**. The host gets an invite link (`/j/123456`) copied to
 the clipboard. The other player taps it, taps one button, and is in. A six-digit
 code is also shown if it is easier to read it out loud.
 
-You each play your own board, but you both get the same fruit in the same order,
-so it is a fair race. Highest score after three minutes wins. Your opponent's
-sword is drawn on your screen in pink, so you can watch them going for the same
-watermelon you are. Nobody gets knocked out: bombs cost points and break your
-combo instead of taking a life.
+You both slice the same fruit. Cut one and it is gone from their screen too, so
+you are genuinely racing for it rather than playing side by side. Their sword is
+drawn on your screen in pink. Highest score after three minutes wins.
+
+If you both cut the same fruit at almost the same moment, you both get the
+points. That window is the network round trip, so nobody ever loses a fruit they
+actually reached first.
+
+Nobody gets knocked out: bombs cost points and break your combo instead of
+taking a life, and a bomb only affects the player who hit it.
 
 ---
 
@@ -158,17 +163,23 @@ responsive the game feels than any of the latency work.
 
 ### Multiplayer without a game server
 
-Three things cross the network: a 32-bit seed when the match starts, hand
-positions at about 30Hz, and scores. Roughly 5 kbps.
+Four things cross the network: a 32-bit seed when the match starts, hand
+positions at about 30Hz, scores, and one small message per fruit cut. Roughly
+5 kbps.
 
-Both browsers generate identical fruit from that seed. There is no shared world
-state to keep in sync, so network lag cannot make the race unfair. Two details
-make this hold:
+Both browsers generate identical fruit from that seed, so the fruit itself is
+never sent and there is no world state to reconcile. A cut names the fruit by an
+id both sides worked out independently, because spawn order is identical. Two
+details make that hold:
 
 - Physics are measured in screen heights per second, not pixels, so two players
   on different sized screens get the same fruit in the same places.
 - Spawn timing runs off the clock rather than off accumulated frame times, so
   two machines running at different frame rates do not drift apart.
+
+Each player scores only their own cuts, so a cut message removes the fruit but
+awards nothing. That is what makes a contested fruit count for both of them: if
+you were mid-swing when their cut arrived, you had already scored it locally.
 
 `api/room.ts` holds the WebRTC offer and answer long enough for the two browsers
 to find each other, then drops out. It never sees gameplay or video.

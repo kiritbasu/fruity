@@ -22,7 +22,9 @@ below), so "it compiles" is not evidence that anything works.
 ## Invariants you can break without any error appearing
 
 **Spawn randomness must stay deterministic.** Two-player matches work by both
-browsers generating identical fruit from one shared seed. Anything that decides
+browsers generating identical fruit from one shared seed, and a cut identifies
+its fruit by a number derived from spawn order, so a desync would not just
+change what people see, it would make cuts land on the wrong fruit. Anything that decides
 *what* spawns, *where*, or *when* must draw from the seeded `Rng` in
 `util/rng.ts`. Cosmetic randomness (particle directions, fruit spin) uses
 `Math.random()` on purpose so it can never consume from the seeded stream.

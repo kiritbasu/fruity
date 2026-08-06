@@ -53,6 +53,8 @@ export class Session {
 
     this.game.onScoreChanged = (score, combo) => this.peer.send({ t: 'score', score, combo });
 
+    this.game.onFruitCut = (uid, angle) => this.peer.send({ t: 'cut', uid, a: angle });
+
     this.game.onMatchOver = (score) => {
       this.peer.send({ t: 'done', score });
       this.hud.setOpponent(this.game.remote);
@@ -85,6 +87,13 @@ export class Session {
           hot: !!msg.hot,
         };
         remote.handAt = performance.now();
+        break;
+
+      case 'cut':
+        this.game.applyRemoteCut(
+          Math.round(safeNumber(msg.uid, 0, 1e9, -1)),
+          safeNumber(msg.a, -Math.PI * 2, Math.PI * 2),
+        );
         break;
 
       case 'score':
@@ -140,6 +149,7 @@ export class Session {
   close() {
     this.game.onLocalHand = null;
     this.game.onScoreChanged = null;
+    this.game.onFruitCut = null;
     this.game.onMatchOver = null;
     this.hud.setVersusChrome(false);
     this.hud.setOpponentStream(null);

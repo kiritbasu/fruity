@@ -27,13 +27,19 @@ export class Fruit {
   state: FruitState = 'dead';
   /** Drives the bomb's warning pulse. */
   age = 0;
+  /**
+   * Identifies this fruit to the other player. Spawns are deterministic, so
+   * both machines hand the same id to the same fruit without ever sending it.
+   */
+  uid = 0;
 
   get alive() {
     return this.state !== 'dead';
   }
 
-  spawn(id: FruitId, x: number, y: number, vx: number, vy: number, radius: number) {
+  spawn(id: FruitId, x: number, y: number, vx: number, vy: number, radius: number, uid = 0) {
     this.def = FRUITS[id];
+    this.uid = uid;
     this.x = x;
     this.y = y;
     this.vx = vx;

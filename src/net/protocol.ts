@@ -38,6 +38,15 @@ export interface HelloMsg {
   video: boolean;
 }
 
+/** One player cut a fruit; it leaves both boards. */
+export interface CutMsg {
+  t: 'cut';
+  /** Deterministic fruit id, agreed by both sides without being negotiated. */
+  uid: number;
+  /** Angle of the cut, so the halves fall apart the same way on both screens. */
+  a: number;
+}
+
 export interface DoneMsg {
   t: 'done';
   score: number;
@@ -47,7 +56,7 @@ export interface ByeMsg {
   t: 'bye';
 }
 
-export type NetMsg = HandMsg | ScoreMsg | StartMsg | HelloMsg | DoneMsg | ByeMsg;
+export type NetMsg = HandMsg | ScoreMsg | StartMsg | HelloMsg | CutMsg | DoneMsg | ByeMsg;
 
 /** Mirror of the opponent, as the game renders it. */
 export interface RemoteState {

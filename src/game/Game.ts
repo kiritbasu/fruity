@@ -96,6 +96,12 @@ export class Game {
   private levelStartedAt = 0;
   /** Seconds into the level at which the next wave is due. */
   private nextWaveAt = 0;
+  /**
+   * Counts spawns within the level. Both players run the same spawn sequence,
+   * so the same fruit gets the same number on both machines and a cut can name
+   * it without either side having to agree on an id first.
+   */
+  private spawnSeq = 0;
   /** Versus only: seconds remaining in the whole match. */
   private matchSecondsLeft = 0;
   private matchDuration = 180;
@@ -106,6 +112,8 @@ export class Game {
   /** Set by the multiplayer layer; no-ops in solo. */
   onLocalHand: ((h: { x: number; y: number; dx: number; dy: number; len: number; hot: boolean }) => void) | null = null;
   onScoreChanged: ((score: number, combo: number) => void) | null = null;
+  /** Fires when this player cuts a fruit, so it can leave the other board too. */
+  onFruitCut: ((uid: number, angle: number) => void) | null = null;
   onMatchOver: ((score: number) => void) | null = null;
 
   private phaseTimer = 0;
@@ -181,6 +189,7 @@ export class Game {
     // reloads mid-match.
     this.rng = Rng.forLevel(this.matchSeed, index);
     this.nextWaveAt = 0.6;
+    this.spawnSeq = 0;
     this.phase = 'intro';
     this.phaseTimer = this.mode === 'versus' ? 1.6 : 2.6;
     this.clearBoard();
@@ -411,6 +420,9 @@ export class Game {
    * seed lays out the same board on two differently sized windows.
    */
   private launch(id: FruitId) {
+    // Advanced before the early return below, for the same reason the random
+    // draws are: both players must stay on the same sequence.
+    const uid = this.levelIndex * 100000 + ++this.spawnSeq;
     const apexFrac = this.rng.range(0.06, 0.24);
     const xFrac = this.rng.range(0.12, 0.88);
     const driftFrac = this.rng.range(0.07, 0.22);
@@ -431,7 +443,7 @@ export class Game {
     const toCenter = (this.width / 2 - x) / (this.width / 2);
     const vx = (toCenter * driftFrac + wobbleFrac) * this.width;
 
-    fruit.spawn(id, x, spawnY, vx, v0, radius);
+    fruit.spawn(id, x, spawnY, vx, v0, radius, uid);
   }
 
   /** Versus match clock: levels rotate on a timer and the match has a hard end. */
@@ -626,10 +638,43 @@ export class Game {
     this.hud.setScore(this.score, this.combo);
     this.hud.setProgress(this.destroyed, this.level.quota);
     this.onScoreChanged?.(this.score, this.combo);
+    this.onFruitCut?.(fruit.uid, dirAngle);
 
     // In versus the level rotates on the match clock instead, so both players
     // always face the same fruit.
     if (this.mode === 'solo' && this.destroyed >= this.level.quota) this.completeLevel();
+  }
+
+  /**
+   * The other player cut this fruit, so it leaves our board too.
+   *
+   * No points and no combo: we score only our own cuts. If we were mid-swing
+   * and cut it locally a moment before this arrived, we already scored it, so
+   * a fruit contested within the round trip counts for both of us and network
+   * lag can never take one away.
+   */
+  applyRemoteCut(uid: number, angle: number) {
+    const fruit = this.fruits.find((f) => f.state === 'flying' && f.uid === uid);
+    if (!fruit) return;
+
+    const def = fruit.def;
+    const cutAngle = angle - fruit.rot;
+    const nx = -Math.sin(angle);
+    const ny = Math.cos(angle);
+    const sep = 150 / Math.max(0.7, def.mass * 0.7);
+    this.spawnChunk(fruit, cutAngle, -1, -nx * sep, -ny * sep - 50);
+    this.spawnChunk(fruit, cutAngle, 1, nx * sep, ny * sep - 50);
+
+    this.fx.burst(fruit.x, fruit.y, 14, def.juice, def.juice2, {
+      speed: 380,
+      angle,
+      spread: 1.4,
+      size: fruit.radius * 0.11,
+    });
+    // Their colour, so it is obvious who got it.
+    this.fx.ring(fruit.x, fruit.y, fruit.radius * 0.5, fruit.radius * 1.9, GHOST_COLOR, 0.35, 4);
+    this.sfx.slice(def.mass * 1.4);
+    fruit.state = 'dead';
   }
 
   private spawnChunk(fruit: Fruit, cutAngle: number, side: 1 | -1, vx: number, vy: number) {
