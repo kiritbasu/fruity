@@ -77,7 +77,7 @@ src/
     sprites.ts         sprite baking, cut-face rendering
     effects.ts         pooled particles, rings, score popups, splats
     levels.ts          level table and endless generator
-    audio.ts           synthesised sound, no audio files
+    audio.ts           synthesised sound, no audio files (see below)
     hud.ts             DOM HUD and overlays
   net/                 multiplayer, bolted onto the side of the game
     Peer.ts            WebRTC: data channels, optional video, ICE
@@ -130,6 +130,20 @@ that described it. It is named for being cheap to compute.)
 On top of that, the position is projected forward by up to one tracking interval
 so the sword does not visibly lag between camera samples. Rendering runs at 60Hz
 whatever the camera is doing.
+
+### Sound
+
+Every effect is synthesised with the Web Audio API at runtime, so there are no
+audio files to load. A cut is three layers: a bright transient as the blade goes
+through, a wetter body underneath as the fruit opens, and a short tone so a
+flurry of cuts stays legible instead of blurring into noise. Pitch scales with
+the fruit's mass, so a watermelon lands lower than a strawberry, and heavier
+fruit gets extra body — low frequencies read as quieter at the same peak, so
+without that a watermelon sounds duller rather than heavier. A few percent of
+random pitch jitter per hit stops repeats sounding mechanical.
+
+That jitter uses `Math.random()`, not the seeded generator. Audio is cosmetic
+and must never draw from the stream that decides what spawns.
 
 ### Why the visible trail is the hitbox
 

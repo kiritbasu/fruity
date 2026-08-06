@@ -53,9 +53,19 @@ export class Sfx {
     osc.stop(t0 + dur + 0.02);
   }
 
+  /**
+   * Filtered noise burst.
+   *
+   * A bandpass throws away most of a broadband source, and the gain is applied
+   * after the filter — so a nominal gain of 0.5 through a narrow band came out
+   * around a twentieth of that. The makeup term below compensates so `gain`
+   * means roughly the same thing at any Q.
+   */
   private noise(dur: number, gain: number, filterFrom: number, filterTo: number, q = 1, delay = 0) {
     if (!this.ctx || !this.master || !this.noiseBuffer || !this.enabled) return;
     const t0 = this.t + delay;
+    const makeup = 1 + q * 1.6;
+    gain *= makeup;
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuffer;
     const filter = this.ctx.createBiquadFilter();
@@ -72,14 +82,29 @@ export class Sfx {
     src.stop(t0 + dur + 0.02);
   }
 
-  /** Blade passing through air. */
+  /** Blade passing through air. Deliberately soft; it fires on every swing. */
   whoosh() {
-    this.noise(0.16, 0.16, 900, 2600, 0.9);
+    this.noise(0.16, 0.18, 900, 2600, 0.9);
   }
 
-  slice() {
-    this.noise(0.13, 0.5, 3200, 500, 2.2);
-    this.tone(680, 220, 0.14, 'triangle', 0.16);
+  /**
+   * A cut, in three layers: the bright transient of the blade going through,
+   * a wetter body underneath as the fruit opens, and a short tone so a flurry
+   * of cuts stays legible instead of blurring into noise.
+   *
+   * `weight` comes from the fruit's mass, so a watermelon lands lower and
+   * heavier than a strawberry. Pitch is jittered a few percent per hit because
+   * identical repeats start to sound mechanical. That randomness is cosmetic
+   * and must stay on Math.random, away from the seeded spawn stream.
+   */
+  slice(weight = 1) {
+    const p = (1.15 / (0.5 + weight * 0.5)) * (0.94 + Math.random() * 0.12);
+    // Low frequencies read as quieter at the same peak, so heavy fruit needs
+    // extra body to actually feel heavier rather than just duller.
+    const body = 0.16 * (0.75 + weight * 0.3);
+    this.noise(0.085, 0.30, 5200 * p, 1100 * p, 0.7);
+    this.noise(0.22, body, 1100 * p, 260 * p, 1.1, 0.012);
+    this.tone(760 * p, 240 * p, 0.13, 'triangle', 0.2);
   }
 
   combo(step: number) {

@@ -606,7 +606,7 @@ export class Game {
       size: fruit.radius * 0.13,
     });
     this.fx.splat(fruit.x, fruit.y, fruit.radius * 0.9, def.juice);
-    this.sfx.slice();
+    this.sfx.slice(def.mass);
     this.shake = Math.max(this.shake, 0.16);
     fruit.state = 'dead';
 
