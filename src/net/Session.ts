@@ -1,6 +1,7 @@
 import { Peer, type PeerStatus } from './Peer';
 import type { NetMsg, Role } from './protocol';
 import { safeLabel, safeNumber } from '../util/html';
+import { randomSeed } from '../util/rng';
 import type { Game } from '../game/Game';
 import type { Hud } from '../game/hud';
 
@@ -122,7 +123,7 @@ export class Session {
 
   /** Host only. Both sides land in beginMatch within a round trip of each other. */
   startMatch() {
-    const seed = (Math.random() * 0xffffffff) >>> 0;
+    const seed = randomSeed();
     this.peer.send({ t: 'start', seed, duration: MATCH_SECONDS });
     this.beginMatch(seed, MATCH_SECONDS);
   }

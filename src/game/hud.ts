@@ -179,7 +179,7 @@ export class Hud {
         <div class="stat"><b>${score}</b><small>You</small></div>
         <div class="stat"><b>${Number(remote.score) || 0}</b><small>${name}</small></div>
       </div>
-      <p style="opacity:.6;font-size:13px">${
+      <p class="hint">${
         remote.done ? 'Both players finished.' : 'Waiting for them to finish…'
       }</p>
       <button class="primary" data-action="rematch">Rematch</button>
@@ -213,7 +213,7 @@ export class Hud {
       <div class="error">${detail}</div>
       <button class="primary" data-action="restart">Try again</button>
       <div class="foot">
-        Or <a href="#" data-action="pointer" style="color:#5ee7ff">play with the mouse instead</a>
+        Or <a href="#" data-action="pointer" class="link">play with the mouse instead</a>
       </div>
     `);
   }
@@ -226,7 +226,7 @@ export class Hud {
       <div class="kicker">Level ${level.index + 1}</div>
       <h2>${level.name}</h2>
       <p class="tight">${level.brief}</p>
-      <p style="opacity:.55;font-size:13px">${level.quota} fruit to clear</p>
+      <p class="hint">${level.quota} fruit to clear</p>
     `,
       true,
     );

@@ -6,6 +6,7 @@ import { Game } from './game/Game';
 import { Hud } from './game/hud';
 import { Lobby } from './net/lobby';
 import { codeFromUrl } from './net/rooms';
+import { errorText } from './util/html';
 import type { InputSource } from './tracking/types';
 
 /*
@@ -59,7 +60,7 @@ function welcome() {
     <button class="ghost" data-action="versus">Play with a friend</button>
     <div class="foot">
       Needs a webcam and about 8 MB of model download on first run.<br />
-      No camera? <a href="#" data-action="pointer" style="color:#5ee7ff">play with the mouse</a><br />
+      No camera? <a href="#" data-action="pointer" class="link">play with the mouse</a><br />
       <kbd>D</kbd> perf overlay \u00b7 <kbd>M</kbd> mute \u00b7 <kbd>P</kbd> pause
     </div>
   `);
@@ -145,7 +146,7 @@ async function boot() {
     hud.showLoading('Loading hand-tracking model (one-time, ~8 MB)…');
     await startPromise;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorText(err);
     hud.showError(
       'Could not start the camera',
       /denied|Permission|NotAllowed/i.test(msg)
@@ -306,7 +307,7 @@ function invited(code: string) {
     <div class="foot">
       Uses your camera to see where your hand is. The video stays on this
       machine; only your hand position and score go to the other player.<br />
-      No camera? <a href="#" data-action="pointer" style="color:#5ee7ff">use the mouse instead</a>
+      No camera? <a href="#" data-action="pointer" class="link">use the mouse instead</a>
     </div>
   `);
   hud.panelEl.querySelector('[data-action="join"]')?.addEventListener('click', () => {

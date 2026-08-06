@@ -7,7 +7,7 @@ import { FRUITS, SLICE_COLOR, type FruitId } from './fruitDefs';
 import { levelAt, type LevelDef } from './levels';
 import { clearSpriteCache, prewarm } from './sprites';
 import { bladeSegment, clearSwordCache, drawSword } from './sword';
-import { Rng } from '../util/rng';
+import { Rng, randomSeed } from '../util/rng';
 import { emptyRemote, type RemoteState } from '../net/protocol';
 import type { Hud } from './hud';
 
@@ -143,7 +143,7 @@ export class Game {
 
   start() {
     this.mode = 'solo';
-    this.matchSeed = (Math.random() * 0xffffffff) >>> 0;
+    this.matchSeed = randomSeed();
     this.reset();
   }
 

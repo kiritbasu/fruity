@@ -12,6 +12,10 @@ npm run build        # typecheck + build (this is the real check; run it)
 npm run typecheck    # tsc --noEmit on its own
 ```
 
+`npm run dev` does not serve `api/`, so the two-player lobby fails with "invites
+are unavailable". Use `vercel dev` when working on multiplayer; it runs the Vite
+server and the API routes together.
+
 There is no test suite. Verification is done by driving the real app (see
 below), so "it compiles" is not evidence that anything works.
 

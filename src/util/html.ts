@@ -30,3 +30,7 @@ export const safeLabel = (v: unknown, maxLength = 24, fallback = ''): string => 
     .slice(0, maxLength);
   return cleaned || fallback;
 };
+
+/** Unwraps an unknown thrown value into something displayable. */
+export const errorText = (err: unknown, fallback = 'Something went wrong.'): string =>
+  err instanceof Error ? err.message : String(err ?? fallback);

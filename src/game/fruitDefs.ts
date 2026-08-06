@@ -623,5 +623,9 @@ export const FRUITS: Record<FruitId, FruitDef> = {
   },
 };
 
-/** Accent colour for the sword, popups and UI chrome. */
+/**
+ * Accent colour for the sword, trail and score popups. Canvas cannot read CSS
+ * custom properties, so this is the one place the value is repeated; keep it in
+ * step with `--slice` in style.css.
+ */
 export const SLICE_COLOR = '#5ee7ff';

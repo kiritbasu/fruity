@@ -2,6 +2,10 @@
 
 **[Play it →](https://fruity-rose.vercel.app)**
 
+![Two players racing: a watermelon splitting along the blade, the player's sword
+and trail in blue, the opponent's ghosted in pink, with the match clock and their
+live score](docs/screenshot.png)
+
 Slice flying fruit with your bare hand. A webcam tracks your hand, a sword
 follows it, and anything you swing through gets cut in half. Two people can race
 each other over a direct browser-to-browser link by sharing one URL.
@@ -282,6 +286,10 @@ npm run build        # typecheck and build into dist/
 npm run typecheck    # tsc --noEmit
 npm run assets       # re-fetch the MediaPipe runtime and model
 ```
+
+`npm run dev` serves the game but not `api/`, so the two-player lobby will report
+that invites are unavailable. To work on multiplayer locally, run `vercel dev`
+instead, which serves the Vite app and the API routes together.
 
 `npm install` copies the MediaPipe WASM runtime out of `node_modules` and
 downloads the 8MB gesture model into `public/` (see `scripts/fetch-assets.mjs`).

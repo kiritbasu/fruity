@@ -688,3 +688,18 @@ button.primary.big {
 .big-input::placeholder {
   color: rgba(255, 255, 255, 0.16);
 }
+
+/* Shared inline-text helpers, so overlay templates in TS do not hardcode
+   colours that are already defined as variables here. */
+.panel a.link {
+  color: var(--slice);
+}
+
+.panel .hint {
+  font-size: 13px;
+  opacity: 0.62;
+}
+
+.panel .hint.tight {
+  margin: 10px 0 0;
+}

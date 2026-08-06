@@ -8,7 +8,7 @@ import {
   inviteLink,
   submitAnswer,
 } from './rooms';
-import { escapeHtml } from '../util/html';
+import { errorText, escapeHtml } from '../util/html';
 import type { Game } from '../game/Game';
 import type { Hud } from '../game/hud';
 
@@ -103,7 +103,7 @@ export class Lobby {
       <button class="primary wide" data-action="host">Start a game</button>
       <button class="ghost wide" data-action="join">Join with a code</button>
       <div class="foot">
-        <a href="#" data-action="solo" style="color:#5ee7ff">back to solo</a>
+        <a href="#" data-action="solo" class="link">back to solo</a>
       </div>
     `);
     this.on('host', () => void this.hostFlow(this.wantsVideo()));
@@ -142,7 +142,7 @@ export class Lobby {
     try {
       offer = await session.peer.createOffer();
     } catch (err) {
-      this.showFailed(err instanceof Error ? err.message : String(err));
+      this.showFailed(errorText(err));
       return;
     }
     this.setVideo(video);
@@ -152,7 +152,7 @@ export class Lobby {
     try {
       code = (await createRoom(offer)).code;
     } catch (err) {
-      this.showRelayUnavailable(err instanceof Error ? err.message : String(err));
+      this.showRelayUnavailable(errorText(err));
       return;
     }
 
@@ -162,12 +162,12 @@ export class Lobby {
       <div class="kicker">Your game is ready</div>
       <h2>Send them this link</h2>
       <button class="primary wide" data-action="copylink">Copy invite link</button>
-      <p style="font-size:13px;opacity:.65;margin:10px 0 0">Paste it into FaceTime or
+      <p class="hint tight">Paste it into FaceTime or
       Messages. They just tap it — nothing to type.</p>
       <div class="code-or">or read them this code</div>
       <div class="big-code">${code}</div>
       <div class="loader"><span class="spinner"></span><span>Waiting for them to join…</span></div>
-      <div class="foot"><a href="#" data-action="cancel" style="color:#5ee7ff">cancel</a></div>
+      <div class="foot"><a href="#" data-action="cancel" class="link">cancel</a></div>
     `);
     this.on('copylink', () => {
       void copy(link).then((ok) => {
@@ -191,7 +191,7 @@ export class Lobby {
       this.waitForReady(true);
     } catch (err) {
       if (this.cancelled) return;
-      this.showFailed(err instanceof Error ? err.message : String(err));
+      this.showFailed(errorText(err));
     }
   }
 
@@ -205,7 +205,7 @@ export class Lobby {
              maxlength="6" placeholder="000000" autocomplete="off" />
       <button class="primary wide" data-action="go">Join</button>
       <div class="foot" id="lobbyErr"></div>
-      <div class="foot"><a href="#" data-action="back" style="color:#5ee7ff">back</a></div>
+      <div class="foot"><a href="#" data-action="back" class="link">back</a></div>
     `);
     const input = this.hud.panelEl.querySelector('#joinCode') as HTMLInputElement | null;
     input?.focus();
@@ -247,7 +247,7 @@ export class Lobby {
       if (this.cancelled) return;
       this.waitForReady(false);
     } catch (err) {
-      this.showJoinFailed(err instanceof Error ? err.message : String(err));
+      this.showJoinFailed(errorText(err));
     }
   }
 
